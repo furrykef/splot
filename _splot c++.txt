@@ -1,0 +1,141 @@
+Terminology
+-----------
+Capture square: A square the opponent can land on to capture a piece.
+
+
+AI
+--
+ZOBRIST HASHING POSSIBLY WRONG. Generates different moves sometimes. Could possibly be normal due to different search depth.
+
+MTD(f) is making different moves than negamax
+
+Zobrist hashing can be improved by using a "hash lock" -- instead of recording the full_hash, compute and record a DIFFERENT hash. Implement by modifying calcHash to accept different tables. There is the unfortunate side effect, though, that this doubles the time spent hashing.
+
+Empty squares do not need to be added to zobrist hash (may not hurt, though)
+
+For performance, could turn off randomness when number of pieces on board is >=N (thus allowing more cutoffs, since we can test score >= beta rather than score > beta)
+
+Always examine one ply deeper when there is only one legal move (repeat as necessary).
+
+Should give higher scores to winning the game in fewer moves, so the computer always plays the quickest win, not the first it finds. (If the win is only a few ply away, though, iterative deepening will catch it at the shallowest possible depth.)
+
+Try null move heuristic -- but be careful, zugzwang CAN occur
+
+Try killer move heuristic
+
+Consider quiescence search: after a certain number of ply, examine only moves that capture. But unlike chess, I think a higher proportion of possible moves will be capture moves, and also unlike chess, the number of pieces does not go down with each capture.
+
+Repetition could complicate searches (i.e. if CPU returns to a previous position during its search, but does not realize it)
+
+I'm thinking a piece is worth 100 points, a capture square is worth -N points (to encourage the algorithm to err on the side of reducing its capture squares), where N is the number of pieces that will be captured if the opponent moves there. (Calculate by iterating through the board, and if piece is of our color, adding up all the empty squares that neighbor it)
+
+I'm thinking of using iterative deepening for 2 or 3 ply before switching to Negascout or MTD(f). This increases the probability of having found a decent move if the search is forced to terminate early.
+
+
+Testing AI
+----------
+Confirm findMoves and findAllPossibleMoves yield the same scores for every position
+
+Generate (say) 1 million random positions. Verify that Negamax w/o alpha-beta, Negamax w/alpha-beta, and Negascout always return the same result for an N-ply search.
+
+Also try random positions with different version of the algorithm to see how they perform.
+
+
+Bitboards
+---------
+Suppose we have this board:
+
+    B..
+    ...
+    ..R
+
+We start with these bitboards:
+
+    Blue    Red
+    -----------
+    100     000
+    000     000
+    000     001
+
+(In the code, these will be bb_blue and bb_red)
+
+bb_pieces can be made by ORing bb_blue and bb_red together:
+
+    Pieces
+    ------
+    100
+    000
+    001
+
+To calculate Blue's legal moves, we use a LUT and iterate through it with each bit, using the bit number as the index:
+
+    for(uint64 bitnum = 0; bitnum < NUM_BITS; ++bitnum) {
+        if(bb_blue & (1LL << bitnum)) {
+            // CLONE_MOVES[bitnum];
+            // JUMP_MOVES[bitnum];
+        }
+    }
+
+I'm thinking each entry in CLONE_MOVES and JUMP_MOVES is an array of BitMove -- 8 and 12 entries respectively -- one for each possible move. BitMove is:
+
+    struct BitMove
+    {
+        uint64 dst_square;
+        uint64 captures;
+    };
+
+dst_square contains only the bit for the destination square. If this is 0, the move is illegal (the CPU went off the edge of the board). Then this is ANDed against bb_pieces. If the result is 1, the move is illegal (CPU tried to move to occupied square).
+
+captures is set to 1 for the (up to) 8 squares around the destination square. AND it against bb_red to get the captures. The final result is:
+
+    uint64 bb_blue_after_move = bitmove.dst_square | (bitmove.captures & bb_red);
+    if(move was a jump move) {
+        bb_blue_after_move &= ~src_square;
+    }
+    uint64 bb_red_after_move = bb_red & ~bitmove.captures;
+
+Remember, this code excludes the checks for whether the move is legal!
+
+
+You ain't thinkin' straight. For CLONE_MOVES you want to check *destination* squares (but only those that are neighbored by a friendly square). This avoids checking many moves that clone into the same square.
+
+    struct BitCloneMove
+    {
+        uint64 captures;
+    };
+
+captures also doubles as the bitboard of possible source squares. If bb_blue & captures is nonzero, the cloning move is legal.
+
+
+Evaluating a position with bitboards
+------------------------------------
+Counting number of 1's one bit at a time:
+
+    int count = 0;
+    for(uint64 bits = bitboard; bits != 0; bits >>= 1) {
+        count += bits & 1;
+    }
+
+
+Counting number of 1's with a lookup table (COUNT_BITS is 16-bit):
+
+    int count = COUNT_BITS[bitboard & 0xffff];
+    count += COUNT_BITS[(bitboard >> 16) & 0xffff];
+    count += COUNT_BITS[(bitboard >> 32) & 0xffff];
+    count += COUNT_BITS[(bitboard >> 48) & 0xffff];
+
+Or equivalently:
+
+    int count = 0;
+    for(uint64 bits = bitboard; bits != 0; bits >>= 16) {
+        count += COUNT_BITS[bits & 0xffff];
+    }
+
+A very similar trick can also be used with bitboards to make zobrist hashes!
+
+    uint64 hash = ZOBRIST_BLUE1[bb_blue & 0xffff];
+    hash ^= ZOBRIST_BLUE2[(bb_blue >> 16) & 0xffff];
+    hash ^= ZOBRIST_BLUE3[(bb_blue >> 32) & 0xffff];
+    hash ^= ZOBRIST_BLUE4[(bb_blue >> 48) & 0xffff];
+
+Then repeat for red, and then hash in whose turn it is to move.

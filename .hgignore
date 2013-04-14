@@ -1,0 +1,10 @@
+syntax: glob
+
+Debug/*
+Release/*
+*.opensdf
+*.sdf
+*.sln
+*.suo
+*.vcxproj
+*.filters
