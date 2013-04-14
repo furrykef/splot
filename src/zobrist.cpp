@@ -3,7 +3,7 @@
 #include <unordered_map>
 #include "zobrist.hpp"
 
-const size_t ZOBRIST_TABLE_SIZE = 64 * 0x100000;
+const size_t ZOBRIST_TABLE_SIZE = 128 * 0x100000;
 
 ZobristValue zobrist_table[ZOBRIST_TABLE_SIZE];
 
@@ -76,6 +76,7 @@ void initZobristTable()
 }
 
 // turn is 1 for AI, -1 for human
+// Remember, depth of -1 signifies invalid value
 void getZobristValue(const Board& board, int turn, ZobristValue &value)
 {
     ZobristHash hash = calcHash(board, turn);

@@ -18,8 +18,8 @@ struct ZobristValue
 {
     ZobristHash full_hash;
     short score;
-    ScoreType score_type : 2;
-    signed depth : 6;               // Use -1 to signify invalid
+    unsigned score_type : 2;    // Should be ScoreType, but compiler may make it signed, causing funky behavior
+    signed depth : 6;           // Use -1 to signify invalid
 };
 #pragma pack()
 
