@@ -2,9 +2,9 @@ syntax: glob
 
 Debug/*
 Release/*
+Semi-debug/*
 *.opensdf
 *.sdf
 *.sln
 *.suo
-*.vcxproj
-*.filters
+*.vcxproj*

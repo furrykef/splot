@@ -3,8 +3,10 @@
 #include <cctype>
 #include <chrono>
 #include <iostream>
+#include <random>
 #include <regex>
 #include <string>
+#include <sstream>
 #include <vector>
 
 // Need Win32 to print pretty colors
@@ -18,16 +20,35 @@
 
 using namespace std;
 
+mt19937 g_rng;
+
 void initBoard(Board& board);
 void drawBoard(const Board& board);
+bool askForWhichAI(int &which_ai);
 bool askForHumansMove(const Board& board, Move& move);
-void decideCpusMove(const Board& board, Move& move);
+void decideCpusMove(const Board& board, Move& move, int which_ai);
+
+enum WhichAI {
+    AI_RANDOM_MOVE,
+    AI_NEGAMAX,
+    AI_NEGAMAX_ITERATIVE,
+    AI_MTDF,
+    NUM_AIS
+};
 
 int main()
 {
+    // Seed RNG
+    g_rng.seed(unsigned long(chrono::system_clock::now().time_since_epoch().count()));
+
     // Print big numbers with thousands separators
     locale loc("");
     cout.imbue(loc);
+
+    int which_ai;
+    if(!askForWhichAI(which_ai)) {
+        return 0;
+    }
 
     Board board;
     initBoard(board);
@@ -73,7 +94,7 @@ int main()
         // CPU's turn
         if(hasLegalMove(board, PLAYER2)) {
             Move move;
-            decideCpusMove(board, move);
+            decideCpusMove(board, move, which_ai);
             makeMove(board, move);
             drawBoard(board);
         }
@@ -106,12 +127,12 @@ void drawBoard(const Board& board)
         for(int x = 0; x < 7; ++x) {
             WORD color = 0;
             switch(board(x, y)) {
-                case EMPTY_SQUARE:  break;
-                case PLAYER1:       color = FOREGROUND_BLUE | FOREGROUND_INTENSITY; break;
-                case PLAYER2:       color = FOREGROUND_RED | FOREGROUND_INTENSITY; break;
-                case PLAYER3:       color = FOREGROUND_GREEN | FOREGROUND_INTENSITY; break;
-                case PLAYER4:       color = FOREGROUND_BLUE | FOREGROUND_RED | FOREGROUND_INTENSITY; break;
-                default: /* can't happen */ color = BACKGROUND_RED | BACKGROUND_INTENSITY; break;
+              case EMPTY_SQUARE:    break;
+              case PLAYER1:         color = FOREGROUND_BLUE | FOREGROUND_INTENSITY; break;
+              case PLAYER2:         color = FOREGROUND_RED | FOREGROUND_INTENSITY; break;
+              case PLAYER3:         color = FOREGROUND_GREEN | FOREGROUND_INTENSITY; break;
+              case PLAYER4:         color = FOREGROUND_BLUE | FOREGROUND_RED | FOREGROUND_INTENSITY; break;
+              default: /* can't happen */ color = BACKGROUND_RED | BACKGROUND_INTENSITY; break;
             }
             cout << flush;
             SetConsoleTextAttribute(hConsole, color);
@@ -122,6 +143,38 @@ void drawBoard(const Board& board)
         cout << endl << " ---------------" << endl;
     }
     cout << endl;
+}
+
+// Return value is false if user chooses "exit", true otherwise
+bool askForWhichAI(int& which_ai)
+{
+    string which_ai_str;
+    while(true) {
+        cout << "CHOOSE YOUR OPPONENT" << endl;
+        cout << "====================" << endl;
+        cout << "1) Zero ply, zero IQ" << endl;
+        cout << "2) Negamax" << endl;
+        cout << "3) Negamax with iterative deepening" << endl;
+        cout << "4) MTD(f)" << endl;
+        cout << endl;
+        cout << "Enter a number> ";
+        cin >> which_ai_str;
+        transform(which_ai_str.begin(), which_ai_str.end(), which_ai_str.begin(), tolower);
+        if(which_ai_str == "exit" || which_ai_str == "quit") {
+            return false;
+        }
+        stringstream convert(which_ai_str);
+        if(!(convert >> which_ai)) {
+            // Set which_ai to something that will fail
+            which_ai = 0;
+        }
+        // Make which_ai zero-based
+        --which_ai;
+        if(which_ai >= 0 && which_ai < NUM_AIS) {
+            return true;
+        }
+        cout << endl << "Beg your pardon?" << endl << endl;
+    }
 }
 
 // Return false to quit the game, return true to continue
@@ -151,19 +204,23 @@ bool askForHumansMove(const Board& board, Move &move)
     }
 }
 
-void decideCpusMove(const Board& board, Move& move)
+void decideCpusMove(const Board& board, Move& move, int which_ai)
 {
     using namespace std::chrono;
-    /*vector<Move> moves;
-    findAllPossibleMoves(board, PLAYER2, moves);
-    assert(moves.size() > 0);
-    move = moves[0];*/
     initZobristTable();
     int nodes_searched = 0;
+    int (*ai)(const Board&, Move&, int&);
+    switch(which_ai) {
+      case AI_RANDOM_MOVE:          ai = random_move; break;
+      case AI_NEGAMAX:              ai = negamax; break;
+      case AI_NEGAMAX_ITERATIVE:    ai = negamax_iterative; break;
+      case AI_MTDF:                 ai = mtdf; break;
+      default:                      assert(false);
+    }
     steady_clock::time_point t1 = steady_clock::now();
-    negamax(board, -INFINITY, INFINITY, move, nodes_searched);
-    //mtdf(board, move, nodes_searched);
+    ai(board, move, nodes_searched);
     steady_clock::time_point t2 = steady_clock::now();
     duration<double> secs = duration_cast<duration<double>>(t2 - t1);
-    cout << "Searched " << nodes_searched << " nodes in " << secs.count() << " seconds (" << int(nodes_searched / secs.count()) << " nodes/sec)" << endl;
+    cout << "Searched " << nodes_searched << " nodes in " << secs.count() <<
+            " seconds (" << int(nodes_searched / secs.count()) << " nodes/sec)" << endl;
 }

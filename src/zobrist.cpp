@@ -3,7 +3,7 @@
 #include <unordered_map>
 #include "zobrist.hpp"
 
-const size_t ZOBRIST_TABLE_SIZE = 128 * 0x100000;
+const size_t ZOBRIST_TABLE_SIZE = 64 * 0x100000;
 
 ZobristValue zobrist_table[ZOBRIST_TABLE_SIZE];
 
@@ -64,7 +64,7 @@ const ZobristHash ZOBRIST_CODES[7*7*5] = {
 const ZobristHash PLAYER2_TURN_CODE = 0x431D89EC63B226D7LL;
 
 
-ZobristHash calcHash(const Board& board, int turn);
+ZobristHash calcHash(const Board& board, int player_sign);
 
 
 void initZobristTable()
@@ -75,27 +75,28 @@ void initZobristTable()
     }
 }
 
-// turn is 1 for AI, -1 for human
-// Remember, depth of -1 signifies invalid value
-void getZobristValue(const Board& board, int turn, ZobristValue &value)
+// player_sign is 1 for AI, -1 for human
+// Remember, depth of -1 signifies the whole ZobristValue is invalid
+ZobristValue getZobristValue(const Board& board, int player_sign)
 {
-    ZobristHash hash = calcHash(board, turn);
-    value = zobrist_table[hash % ZOBRIST_TABLE_SIZE];
+    ZobristHash hash = calcHash(board, player_sign);
+    ZobristValue value = zobrist_table[hash % ZOBRIST_TABLE_SIZE];
     if(value.full_hash != hash) {
         // The short hash (i.e. mod ZOBRIST_TABLE_SIZE) collided, but the full hash did not.
         // That means this result is spurious; invalidate it.
         value.depth = -1;
     }
+    return value;
 }
 
-void setZobristValue(const Board& board, int turn, ZobristValue &value)
+void setZobristValue(const Board& board, int player_sign, ZobristValue& value)
 {
-    ZobristHash hash = calcHash(board, turn);
+    ZobristHash hash = calcHash(board, player_sign);
     value.full_hash = hash;
     zobrist_table[hash % ZOBRIST_TABLE_SIZE] = value;
 }
 
-ZobristHash calcHash(const Board& board, int turn)
+ZobristHash calcHash(const Board& board, int player_sign)
 {
     ZobristHash hash = 0;
     const Player* board_cell = &board(0, 0);
@@ -105,7 +106,7 @@ ZobristHash calcHash(const Board& board, int turn)
             hash ^= ZOBRIST_CODES[*board_cell++ + count++];
         }
     }
-    if(turn == 1) {
+    if(player_sign == 1) {
         hash ^= PLAYER2_TURN_CODE;
     }
     return hash;

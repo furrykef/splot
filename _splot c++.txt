@@ -7,7 +7,7 @@ AI
 --
 ZOBRIST HASHING POSSIBLY WRONG. Generates different moves sometimes. Could possibly be normal due to different search depth.
 
-MTD(f) is making different moves than negamax
+MTD(f) is making different moves than negamax, even with zobrist hashing off
 
 Zobrist hashing can be improved by using a "hash lock" -- instead of recording the full_hash, compute and record a DIFFERENT hash. Implement by modifying calcHash to accept different tables. There is the unfortunate side effect, though, that this doubles the time spent hashing.
 
@@ -19,7 +19,7 @@ Always examine one ply deeper when there is only one legal move (repeat as neces
 
 Should give higher scores to winning the game in fewer moves, so the computer always plays the quickest win, not the first it finds. (If the win is only a few ply away, though, iterative deepening will catch it at the shallowest possible depth.)
 
-Try null move heuristic -- but be careful, zugzwang CAN occur
+Try null move heuristic
 
 Try killer move heuristic
 
@@ -76,7 +76,7 @@ To calculate Blue's legal moves, we use a LUT and iterate through it with each b
         }
     }
 
-I'm thinking each entry in CLONE_MOVES and JUMP_MOVES is an array of BitMove -- 8 and 12 entries respectively -- one for each possible move. BitMove is:
+I'm thinking each entry in CLONE_MOVES and JUMP_MOVES is an array of BitMove -- 8 and 16 entries respectively -- one for each possible move. BitMove is:
 
     struct BitMove
     {

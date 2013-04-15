@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <random>
 #include <vector>
 
 #include "Board.hpp"
@@ -8,7 +9,11 @@
 
 using namespace std;
 
-int negamax_impl(const Board& board, int depth, int alpha, int beta, int player, int& nodes_searched);
+extern mt19937 g_rng;
+
+int negamax_root(const Board &board, int depth, int alpha, int beta, Move& move_out, int& nodes_searched);
+int negamax_impl(const Board& board, int depth, int alpha, int beta, int player_sign, int& nodes_searched);
+int mtdf_impl(const Board &board, int depth, int f, Move& move_out, int& nodes_searched);
 int evalPosition(const Board& board);
 void findMoves(const Board& board, Player who, vector<Move>& moves);
 void findLegalClones(const Board& board, Player who, vector<Move>& moves);
@@ -17,7 +22,33 @@ void findLegalJumps(const Board& board, Player who, vector<Move>& moves);
 void appendLegalJumps(const Board& board, int src_x, int src_y, vector<Move>& moves);
 void appendJumpIfLegal(const Board& board, int src_x, int src_y, int dst_x, int dst_y, vector<Move>& moves);
 
-int negamax(const Board &board, int alpha, int beta, Move& move_out, int& nodes_searched)
+int random_move(const Board& board, Move& move_out, int& nodes_searched)
+{
+    vector<Move> moves;
+    // @TODO@ -- assumes AI is PLAYER2
+    findAllPossibleMoves(board, PLAYER2, moves);
+    assert(moves.size() > 0);
+    move_out = moves[g_rng() % moves.size()];
+    return 0;
+}
+
+// TRANSPOSITION TABLE MUST BE INITIALIZED BEFORE CALLING
+int negamax(const Board& board, Move& move_out, int& nodes_searched)
+{
+    return negamax_root(board, MAX_PLY, -INFINITY, INFINITY, move_out, nodes_searched);
+}
+
+// TRANSPOSITION TABLE MUST BE INITIALIZED BEFORE CALLING
+int negamax_iterative(const Board& board, Move& move_out, int& nodes_searched)
+{
+    int score;
+    for(int depth = 1; depth <= MAX_PLY; ++depth) {
+        score = negamax_root(board, depth, -INFINITY, INFINITY, move_out, nodes_searched);
+    }
+    return score;
+}
+
+int negamax_root(const Board &board, int depth, int alpha, int beta, Move& move_out, int& nodes_searched)
 {
     vector<Move> moves;
 
@@ -30,7 +61,7 @@ int negamax(const Board &board, int alpha, int beta, Move& move_out, int& nodes_
         ++nodes_searched;
         Board board_after_move(board);
         makeMove(board_after_move, move);
-        int score = -negamax_impl(board_after_move, MAX_PLY - 1, -beta, -alpha, -1, nodes_searched);
+        int score = -negamax_impl(board_after_move, depth - 1, -beta, -alpha, -1, nodes_searched);
         if(score > alpha) {
             alpha = score;
             best_moves.resize(0);
@@ -51,8 +82,8 @@ int negamax(const Board &board, int alpha, int beta, Move& move_out, int& nodes_
     return alpha;
 }
 
-// player is 1 for Max (i.e. this AI player), -1 for Min
-int negamax_impl(const Board& board, int depth, int alpha, int beta, int player, int& nodes_searched)
+// player_sign is 1 for Max (i.e. this AI player), -1 for Min
+int negamax_impl(const Board& board, int depth, int alpha, int beta, int player_sign, int& nodes_searched)
 {
     ++nodes_searched;
 
@@ -62,8 +93,7 @@ int negamax_impl(const Board& board, int depth, int alpha, int beta, int player,
     }
 
     if(ENABLE_ZOBRIST) {
-        ZobristValue zobrist_value;
-        getZobristValue(board, player, zobrist_value);
+        ZobristValue zobrist_value = getZobristValue(board, player_sign);
         if(zobrist_value.depth >= depth) {
             switch(zobrist_value.score_type) {
               case SCORE_EXACT:
@@ -88,25 +118,22 @@ int negamax_impl(const Board& board, int depth, int alpha, int beta, int player,
     }
 
     if(depth == 0) {
-        int score = player * evalPosition(board);
-        ZobristValue zobrist_value;
-        zobrist_value.score = score;
-        zobrist_value.score_type = SCORE_EXACT;
-        zobrist_value.depth = depth;
-        setZobristValue(board, player, zobrist_value);
+        int score = player_sign * evalPosition(board);
+        ZobristValue zobrist_value(score, SCORE_EXACT, depth);
+        setZobristValue(board, player_sign, zobrist_value);
         return score;
     }
 
     vector<Move> moves;
     // @TODO@ -- Assumes AI is PLAYER2
-    findMoves(board, (player == 1) ? PLAYER2 : PLAYER1, moves);
+    findMoves(board, (player_sign == 1) ? PLAYER2 : PLAYER1, moves);
 
     if(moves.size() == 0) {
         // @TODO@ -- This is not correct behavior!
         // Should check if game over and if so return position evaluation.
         // Otherwise, should take another turn. Sometimes the CPU gets to fill the board here;
         // that should be detected too.
-        return player * evalPosition(board);
+        return player_sign * evalPosition(board);
     }
 
     ScoreType score_type = SCORE_ALPHA;
@@ -114,13 +141,10 @@ int negamax_impl(const Board& board, int depth, int alpha, int beta, int player,
     for(const Move &move : moves) {
         Board board_after_move(board);
         makeMove(board_after_move, move);
-        int score = -negamax_impl(board_after_move, depth - 1, -beta, -alpha, -player, nodes_searched);
+        int score = -negamax_impl(board_after_move, depth - 1, -beta, -alpha, -player_sign, nodes_searched);
         if(score >= beta) {
-            ZobristValue zobrist_value;
-            zobrist_value.score = score;
-            zobrist_value.score_type = SCORE_BETA;
-            zobrist_value.depth = depth;
-            setZobristValue(board, player, zobrist_value);
+            ZobristValue zobrist_value(score, SCORE_BETA, depth);
+            setZobristValue(board, player_sign, zobrist_value);
             return score;
         } else if(score > alpha) {
             alpha = score;
@@ -128,47 +152,38 @@ int negamax_impl(const Board& board, int depth, int alpha, int beta, int player,
         }
     }
 
-    ZobristValue zobrist_value;
-    zobrist_value.score = alpha;
-    zobrist_value.score_type = score_type;
-    zobrist_value.depth = depth;
-    setZobristValue(board, player, zobrist_value);
+    ZobristValue zobrist_value(alpha, score_type, depth);
+    setZobristValue(board, player_sign, zobrist_value);
     return alpha;
 }
 
+// TRANSPOSITION TABLE MUST BE INITIALIZED BEFORE CALLING
 int mtdf(const Board &board, Move& move_out, int& nodes_searched)
 {
-    // First get an approximate score from a 3-ply search...
-    int g = negamax_impl(board, 3, -INFINITY, INFINITY, 1, nodes_searched);
+    int f = 0;
+    for(int depth = 1; depth <= MAX_PLY; ++depth) {
+        f = mtdf_impl(board, depth, f, move_out, nodes_searched);
+    }
+    return f;
+}
 
-    // Clearing transposition table because depth values will be misleading
-    // @TODO@ -- make this unnecessary
-    initZobristTable();
-
-    vector<Move> moves;
-
-    // @TODO@ -- Assumes AI is PLAYER2
-    findMoves(board, PLAYER2, moves);
-    assert(moves.size() > 0);
-
+int mtdf_impl(const Board &board, int depth, int f, Move& move_out, int& nodes_searched)
+{
+    int score = f;
     int lower_bound = -INFINITY;
     int upper_bound = INFINITY;
     int beta;
-    int times = 0;
     do {
-        ++times;
-        beta = (g == lower_bound) ? g + 1 : g;
-        g = negamax(board, beta - 1, beta, move_out, nodes_searched);
-        if(g < beta) {
-            upper_bound = g; 
+        beta = (score == lower_bound) ? score + 1 : score;
+        score = negamax_root(board, depth, beta - 1, beta, move_out, nodes_searched);
+        if(score < beta) {
+            upper_bound = score;
         } else {
-            lower_bound = g;
+            lower_bound = score;
         }
     } while(lower_bound < upper_bound);
 
-    //cout << times << " times" << endl;
-
-    return g;
+    return score;
 }
 
 // @TODO@ -- Assumes AI is PLAYER2
