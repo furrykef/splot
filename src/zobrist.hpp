@@ -4,6 +4,8 @@
 #include <cstdint>
 #include <unordered_map>
 #include "Board.hpp"
+#include "moves.hpp"
+#include "bitboards.hpp"
 
 typedef std::uint64_t ZobristHash;
 
@@ -15,39 +17,31 @@ enum ScoreType : unsigned
     SCORE_BETA
 };
 
-enum BestMoveType : unsigned
-{
-    BESTMOVE_NONE,
-    BESTMOVE_CLONE,
-    BESTMOVE_JUMP
-};
-
 #pragma pack(1)
 struct ZobristValue
 {
-    ZobristValue()
-    {
-    }
+    ZobristValue() {}
 
-    ZobristValue(short score_, ScoreType score_type_, int depth_)
+    ZobristValue(short score_, ScoreType score_type_, int depth_, BitboardMove best_move_=BitboardMove(BBMOVE_NONE, 0, 0))
+        : score(score_),
+          score_type(score_type_),
+          depth(depth_),
+          best_move(best_move_)
     {
-        score = score_;
-        score_type = score_type_;
-        depth = depth_;
     }
 
     ZobristHash full_hash;
     short score;
     ScoreType score_type : 2;
     signed depth : 6;                   // Use -1 to signify invalid
-    BestMoveType best_move_type : 2;
-    unsigned square : 6;                // Destination if clone move, source if jump move
-    unsigned char jump_type;            // 16 possible values
+    BitboardMove best_move;
 };
 #pragma pack()
 
 void initZobristTable();
 ZobristValue getZobristValue(const Board& board, int player_sign);
 void setZobristValue(const Board& board, int player_sign, ZobristValue &value);
+ZobristValue getZobristValueBB(Bitboard player1, Bitboard player2, int player_sign);
+void setZobristValueBB(Bitboard player1, Bitboard player2, int player_sign, ZobristValue &value);
 
 #endif

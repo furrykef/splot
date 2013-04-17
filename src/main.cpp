@@ -2,6 +2,7 @@
 #include <cassert>
 #include <cctype>
 #include <chrono>
+#include <fstream>
 #include <iostream>
 #include <random>
 #include <regex>
@@ -25,14 +26,19 @@ mt19937 g_rng;
 void initBoard(Board& board);
 void drawBoard(const Board& board);
 bool askForWhichAI(int &which_ai);
-bool askForHumansMove(const Board& board, Move& move);
+bool askForHumansMove(Board& board, Move& move);
 void decideCpusMove(const Board& board, Move& move, int which_ai);
+void saveGame(const Board& board, const std::string& filename);
+void loadGame(Board& board, const std::string& filename);
 
 enum WhichAI {
     AI_RANDOM_MOVE,
-    AI_NEGAMAX,
-    AI_NEGAMAX_ITERATIVE,
-    AI_MTDF,
+    AI_NEGAMAX_WITHOUT_BB,
+    AI_NEGAMAX_ITERATIVE_WITHOUT_BB,
+    AI_MTDF_WITHOUT_BB,
+    AI_NEGAMAX_WITH_BB,
+    AI_NEGAMAX_ITERATIVE_WITH_BB,
+    AI_MTDF_WITH_BB,
     NUM_AIS
 };
 
@@ -95,6 +101,10 @@ int main()
         if(hasLegalMove(board, PLAYER2)) {
             Move move;
             decideCpusMove(board, move, which_ai);
+            /*** DEBUG ***/
+            //decideCpusMove(board, move, AI_NEGAMAX_WITHOUT_BB);
+            //decideCpusMove(board, move, AI_NEGAMAX_WITH_BB);
+            /*** END DEBUG ***/
             makeMove(board, move);
             drawBoard(board);
         }
@@ -156,6 +166,9 @@ bool askForWhichAI(int& which_ai)
         cout << "2) Negamax" << endl;
         cout << "3) Negamax with iterative deepening" << endl;
         cout << "4) MTD(f)" << endl;
+        cout << "5) Negamax with bitboards" << endl;
+        cout << "6) Negamax with iterative deepening and bitboards" << endl;
+        cout << "7) MTD(f) with bitboards" << endl;
         cout << endl;
         cout << "Enter a number> ";
         cin >> which_ai_str;
@@ -179,7 +192,8 @@ bool askForWhichAI(int& which_ai)
 
 // Return false to quit the game, return true to continue
 // 'move' is undefined if user quits
-bool askForHumansMove(const Board& board, Move &move)
+// board is non-const because of "load" command
+bool askForHumansMove(Board& board, Move &move)
 {
     string move_str;
     while(true) {
@@ -188,6 +202,15 @@ bool askForHumansMove(const Board& board, Move &move)
         transform(move_str.begin(), move_str.end(), move_str.begin(), tolower);
         if(move_str == "exit" || move_str == "quit") {
             return false;
+        }
+        if(move_str == "save") {
+            saveGame(board, "save.sav");
+            continue;
+        }
+        if(move_str == "load") {
+            loadGame(board, "save.sav");
+            drawBoard(board);
+            continue;
         }
         if(!regex_match(move_str, regex("[a-g][1-7][a-g][1-7]"))) {
             cout << "Move format is (e.g.) a1b2" << endl;
@@ -209,18 +232,60 @@ void decideCpusMove(const Board& board, Move& move, int which_ai)
     using namespace std::chrono;
     initZobristTable();
     int nodes_searched = 0;
-    int (*ai)(const Board&, Move&, int&);
+    AiFuncPtr ai;
     switch(which_ai) {
-      case AI_RANDOM_MOVE:          ai = random_move; break;
-      case AI_NEGAMAX:              ai = negamax; break;
-      case AI_NEGAMAX_ITERATIVE:    ai = negamax_iterative; break;
-      case AI_MTDF:                 ai = mtdf; break;
-      default:                      assert(false);
+      case AI_RANDOM_MOVE:                  ai = random_move; break;
+      case AI_NEGAMAX_WITHOUT_BB:           ai = negamax; break;
+      case AI_NEGAMAX_ITERATIVE_WITHOUT_BB: ai = negamax_iterative; break;
+      case AI_MTDF_WITHOUT_BB:              ai = mtdf; break;
+      case AI_NEGAMAX_WITH_BB:              ai = negamax_bb; break;
+      case AI_NEGAMAX_ITERATIVE_WITH_BB:    ai = negamax_iterative_bb; break;
+      case AI_MTDF_WITH_BB:                 ai = mtdf_bb; break;
+      default:                              assert(false);
     }
     steady_clock::time_point t1 = steady_clock::now();
-    ai(board, move, nodes_searched);
+    int score = ai(board, move, nodes_searched);
     steady_clock::time_point t2 = steady_clock::now();
     duration<double> secs = duration_cast<duration<double>>(t2 - t1);
-    cout << "Searched " << nodes_searched << " nodes in " << secs.count() <<
-            " seconds (" << int(nodes_searched / secs.count()) << " nodes/sec)" << endl;
+    cout << "Searched " << nodes_searched << " nodes in " << secs.count() << " seconds (";
+    if(secs.count() != 0) {
+        cout << int(nodes_searched / secs.count());
+    } else {
+        cout << "unknown";
+    }
+    cout << " nodes/sec)" << endl;
+    cout << "CPU's estimated score for this move: " << score << endl;
+}
+
+// @TODO@ -- error checking; exception safety?
+void saveGame(const Board& board, const std::string& filename)
+{
+    std::ofstream outfile(filename);
+    if(outfile.fail()) {
+        std::cout << "Failed to write file." << std::endl;
+    }
+    for(int y = 0; y < 7; ++y) {
+        for(int x = 0; x < 7; ++x) {
+            outfile << unsigned char(board(x, y));
+        }
+    }
+    std::cout << "Game saved." << std::endl;
+    outfile.close();
+}
+
+// @TODO@ -- error checking; exception safety?
+void loadGame(Board& board, const std::string& filename)
+{
+    std::ifstream infile(filename);
+    if(infile.fail()) {
+        std::cout << "Failed to load file." << std::endl;
+    }
+    for(int y = 0; y < 7; ++y) {
+        for(int x = 0; x < 7; ++x) {
+            unsigned char player;
+            infile >> player;
+            board(x, y) = Player(player);
+        }
+    }
+    infile.close();
 }

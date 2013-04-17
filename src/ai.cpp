@@ -11,9 +11,10 @@ using namespace std;
 
 extern mt19937 g_rng;
 
-int negamax_root(const Board &board, int depth, int alpha, int beta, Move& move_out, int& nodes_searched);
+namespace
+{
+int negamax_root(const Board& board, int depth, int alpha, int beta, Move& move_out, int& nodes_searched);
 int negamax_impl(const Board& board, int depth, int alpha, int beta, int player_sign, int& nodes_searched);
-int mtdf_impl(const Board &board, int depth, int f, Move& move_out, int& nodes_searched);
 int evalPosition(const Board& board);
 void findMoves(const Board& board, Player who, vector<Move>& moves);
 void findLegalClones(const Board& board, Player who, vector<Move>& moves);
@@ -21,6 +22,7 @@ void appendCloneIfFound(const Board& board, int dst_x, int dst_y, Player who, ve
 void findLegalJumps(const Board& board, Player who, vector<Move>& moves);
 void appendLegalJumps(const Board& board, int src_x, int src_y, vector<Move>& moves);
 void appendJumpIfLegal(const Board& board, int src_x, int src_y, int dst_x, int dst_y, vector<Move>& moves);
+}
 
 int random_move(const Board& board, Move& move_out, int& nodes_searched)
 {
@@ -48,8 +50,42 @@ int negamax_iterative(const Board& board, Move& move_out, int& nodes_searched)
     return score;
 }
 
-int negamax_root(const Board &board, int depth, int alpha, int beta, Move& move_out, int& nodes_searched)
+// TRANSPOSITION TABLE MUST BE INITIALIZED BEFORE CALLING
+int mtdf(const Board& board, Move& move_out, int& nodes_searched)
 {
+    int f = 0;
+    for(int depth = 1; depth <= MAX_PLY; ++depth) {
+        f = mtdf_impl(board, depth, f, move_out, nodes_searched, negamax_root);
+    }
+    return f;
+}
+
+int mtdf_impl(const Board& board, int depth, int f, Move& move_out, int& nodes_searched, NegamaxRootFuncPtr fp_negamax_root)
+{
+    int score = f;
+    int lower_bound = -INFINITY;
+    int upper_bound = INFINITY;
+    int beta;
+    do {
+        beta = (score == lower_bound) ? score + 1 : score;
+        score = fp_negamax_root(board, depth, beta - 1, beta, move_out, nodes_searched);
+        if(score < beta) {
+            upper_bound = score;
+        } else {
+            lower_bound = score;
+        }
+    } while(lower_bound < upper_bound);
+
+    return score;
+}
+
+namespace
+{
+
+int negamax_root(const Board& board, int depth, int alpha, int beta, Move& move_out, int& nodes_searched)
+{
+    ++nodes_searched;
+
     vector<Move> moves;
 
     // @TODO@ -- Assumes AI is PLAYER2
@@ -58,7 +94,6 @@ int negamax_root(const Board &board, int depth, int alpha, int beta, Move& move_
 
     vector<Move> best_moves;
     for(const Move& move : moves) {
-        ++nodes_searched;
         Board board_after_move(board);
         makeMove(board_after_move, move);
         int score = -negamax_impl(board_after_move, depth - 1, -beta, -alpha, -1, nodes_searched);
@@ -133,6 +168,7 @@ int negamax_impl(const Board& board, int depth, int alpha, int beta, int player_
         // Should check if game over and if so return position evaluation.
         // Otherwise, should take another turn. Sometimes the CPU gets to fill the board here;
         // that should be detected too.
+        // @TODO@ -- implement zobrist here!
         return player_sign * evalPosition(board);
     }
 
@@ -155,35 +191,6 @@ int negamax_impl(const Board& board, int depth, int alpha, int beta, int player_
     ZobristValue zobrist_value(alpha, score_type, depth);
     setZobristValue(board, player_sign, zobrist_value);
     return alpha;
-}
-
-// TRANSPOSITION TABLE MUST BE INITIALIZED BEFORE CALLING
-int mtdf(const Board &board, Move& move_out, int& nodes_searched)
-{
-    int f = 0;
-    for(int depth = 1; depth <= MAX_PLY; ++depth) {
-        f = mtdf_impl(board, depth, f, move_out, nodes_searched);
-    }
-    return f;
-}
-
-int mtdf_impl(const Board &board, int depth, int f, Move& move_out, int& nodes_searched)
-{
-    int score = f;
-    int lower_bound = -INFINITY;
-    int upper_bound = INFINITY;
-    int beta;
-    do {
-        beta = (score == lower_bound) ? score + 1 : score;
-        score = negamax_root(board, depth, beta - 1, beta, move_out, nodes_searched);
-        if(score < beta) {
-            upper_bound = score;
-        } else {
-            lower_bound = score;
-        }
-    } while(lower_bound < upper_bound);
-
-    return score;
 }
 
 // @TODO@ -- Assumes AI is PLAYER2
@@ -274,4 +281,6 @@ void appendJumpIfLegal(const Board& board, int src_x, int src_y, int dst_x, int 
         Move move = {Coord(src_x, src_y), Coord(dst_x, dst_y)};
         moves.push_back(move);
     }
+}
+
 }

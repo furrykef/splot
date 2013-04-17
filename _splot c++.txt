@@ -1,3 +1,26 @@
+Immediate todos
+---------------
+* MTD(f) is behaving very oddly. At 8 ply, after a1b1, vanilla searches 15,223 nodes; bitboard with BEST_FIRST on searches 27,271,531; bitboard with BEST_FIRST off searches 87,048,204!
+
+* Check divergence between non-bitboard AI and bitboard AI. The different move ordering may be responsible for the different moves, but the score for the different moves have to be the same, or else there's a bug.
+
+* Why does Negamax BB search 2.6 million nodes on first move but vanilla only 698k? Is this entirely due to alpha-beta?
+** 5-ply search with zobrist off yields different number of nodes searched. Definitely a bug somewhere. 8,835,829 vanilla, 8,832,543 BB
+** 4-ply yields 292,010 vanilla, 291,936 BB
+** It's because when it finds a move with a response that ends the game, there is a beta cutoff. This happens even with alpha-beta "disabled" because the disabling sets beta to INFINITY, and the INFINITY >= INFINITY. Thus, the number of nodes searched becomes sensitive to move order.
+
+* Scores don't match for opening moves between non-BB Negamax and non-BB MTD(f). The score at the first divergence is 4 for Negamax and 3 for MTD(f).
+** The scores for the divergence do match with Zobrist off.
+
+* Test how long it takes for a program to create a vector and add (say) 25 elements to it 1 million times. Then you have an idea of how much your performance gain is from bitboards and how much is from avoiding 'new'.
+
+* Make non-BB and BB versions use exactly the same search algorithm. Then you can see what value the bitboards alone bring, and you can compare the accuracy much more, well, accurately. Current known differences:
+** Different move order
+*** Vanilla searches clones, then jumps; BB searches square by square
+*** BB searches jumps clockwise from top-left; vanilla uses a more ad-hoc order
+** Performance difference: vanilla creates a vector on every move; BB does not.
+
+
 Terminology
 -----------
 Capture square: A square the opponent can land on to capture a piece.
@@ -5,8 +28,6 @@ Capture square: A square the opponent can land on to capture a piece.
 
 AI
 --
-ZOBRIST HASHING POSSIBLY WRONG. Generates different moves sometimes. Could possibly be normal due to different search depth.
-
 MTD(f) is making different moves than negamax, even with zobrist hashing off
 
 Zobrist hashing can be improved by using a "hash lock" -- instead of recording the full_hash, compute and record a DIFFERENT hash. Implement by modifying calcHash to accept different tables. There is the unfortunate side effect, though, that this doubles the time spent hashing.
@@ -41,72 +62,6 @@ Generate (say) 1 million random positions. Verify that Negamax w/o alpha-beta, N
 Also try random positions with different version of the algorithm to see how they perform.
 
 
-Bitboards
----------
-Suppose we have this board:
-
-    B..
-    ...
-    ..R
-
-We start with these bitboards:
-
-    Blue    Red
-    -----------
-    100     000
-    000     000
-    000     001
-
-(In the code, these will be bb_blue and bb_red)
-
-bb_pieces can be made by ORing bb_blue and bb_red together:
-
-    Pieces
-    ------
-    100
-    000
-    001
-
-To calculate Blue's legal moves, we use a LUT and iterate through it with each bit, using the bit number as the index:
-
-    for(uint64 bitnum = 0; bitnum < NUM_BITS; ++bitnum) {
-        if(bb_blue & (1LL << bitnum)) {
-            // CLONE_MOVES[bitnum];
-            // JUMP_MOVES[bitnum];
-        }
-    }
-
-I'm thinking each entry in CLONE_MOVES and JUMP_MOVES is an array of BitMove -- 8 and 16 entries respectively -- one for each possible move. BitMove is:
-
-    struct BitMove
-    {
-        uint64 dst_square;
-        uint64 captures;
-    };
-
-dst_square contains only the bit for the destination square. If this is 0, the move is illegal (the CPU went off the edge of the board). Then this is ANDed against bb_pieces. If the result is 1, the move is illegal (CPU tried to move to occupied square).
-
-captures is set to 1 for the (up to) 8 squares around the destination square. AND it against bb_red to get the captures. The final result is:
-
-    uint64 bb_blue_after_move = bitmove.dst_square | (bitmove.captures & bb_red);
-    if(move was a jump move) {
-        bb_blue_after_move &= ~src_square;
-    }
-    uint64 bb_red_after_move = bb_red & ~bitmove.captures;
-
-Remember, this code excludes the checks for whether the move is legal!
-
-
-You ain't thinkin' straight. For CLONE_MOVES you want to check *destination* squares (but only those that are neighbored by a friendly square). This avoids checking many moves that clone into the same square.
-
-    struct BitCloneMove
-    {
-        uint64 captures;
-    };
-
-captures also doubles as the bitboard of possible source squares. If bb_blue & captures is nonzero, the cloning move is legal.
-
-
 Evaluating a position with bitboards
 ------------------------------------
 Counting number of 1's one bit at a time:
@@ -139,3 +94,16 @@ A very similar trick can also be used with bitboards to make zobrist hashes!
     hash ^= ZOBRIST_BLUE4[(bb_blue >> 48) & 0xffff];
 
 Then repeat for red, and then hash in whose turn it is to move.
+
+
+Draw bitboard routine
+---------------------
+def drawbb(bitboard):
+    out = ""
+    bit = 1
+    for i in xrange(49):
+        out += "1" if bitboard & bit else "0"
+        if i % 7 == 6:
+            out += "\n"
+        bit <<= 1
+    print out

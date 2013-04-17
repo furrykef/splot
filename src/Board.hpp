@@ -4,6 +4,7 @@
 #include <cassert>
 #include <cstring>
 
+// Order matters! calcHash assumes EMPTY_SQUARE = 0, etc.
 enum Player
 {
     PLAYER_NONE = 0,
