@@ -11,9 +11,10 @@ struct Move
 
 enum BitboardMoveType : unsigned
 {
-    BBMOVE_NONE,
+    BBMOVE_NONE,    // Not a null move! This is more like "not a move" or "invalid"; it's like a null pointer for moves
     BBMOVE_CLONE,
-    BBMOVE_JUMP
+    BBMOVE_JUMP,
+    BBMOVE_NULL
 };
 
 // Used in transposition table

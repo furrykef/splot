@@ -82,6 +82,7 @@ int mtdf_impl(const Board& board, int depth, int f, Move& move_out, int& nodes_s
 namespace
 {
 
+// @TODO@ -- merge functionality with negamax_impl
 int negamax_root(const Board& board, int depth, int alpha, int beta, Move& move_out, int& nodes_searched)
 {
     ++nodes_searched;
@@ -92,26 +93,21 @@ int negamax_root(const Board& board, int depth, int alpha, int beta, Move& move_
     findMoves(board, PLAYER2, moves);
     assert(moves.size() > 0);
 
-    vector<Move> best_moves;
+    // Best score is distinguished from alpha because we need to output a
+    // decent move even if we fail low (thanks, MTD(f)).
+    int best_score = -INFINITY;
     for(const Move& move : moves) {
         Board board_after_move(board);
         makeMove(board_after_move, move);
         int score = -negamax_impl(board_after_move, depth - 1, -beta, -alpha, -1, nodes_searched);
-        if(score > alpha) {
-            alpha = score;
-            best_moves.resize(0);
-            best_moves.push_back(move);
+        if(score > best_score) {
+            best_score = score;
+            move_out = move;
         }
-        else if(score == alpha) {
-            best_moves.push_back(move);
+        if(score >= beta) {
+            return score;
         }
-    }
-
-    // @TODO@ -- should return random move with highest score, if there's more than one match
-    // (If we do that, we'll have to change our alpha and beta cutoffs so we cut off only when
-    // a WORSE move has been found, not worse or equal)
-    for(const Move& move : moves) {
-        move_out = best_moves[0];
+        alpha = std::max(alpha, score);
     }
 
     return alpha;
@@ -261,6 +257,8 @@ void findLegalJumps(const Board& board, Player who, vector<Move>& moves)
 // (src_x, src_y) are the location of a piece.
 void appendLegalJumps(const Board& board, int src_x, int src_y, vector<Move>& moves)
 {
+    /*
+    (old ordering)
     // Legal jump moves form the perimeter of a square.
     // Handle the left and right sides
     for(int dst_y = src_y - 2; dst_y <= src_y + 2; ++dst_y) {
@@ -272,6 +270,11 @@ void appendLegalJumps(const Board& board, int src_x, int src_y, vector<Move>& mo
     for(int dst_x = src_x - 1; dst_x <= src_x + 1; ++dst_x) {
         appendJumpIfLegal(board, src_x, src_y, dst_x, src_y - 2, moves);
         appendJumpIfLegal(board, src_x, src_y, dst_x, src_y + 2, moves);
+    }
+    */
+
+    for(Coord coord : JUMP_COORDS) {
+        appendJumpIfLegal(board, src_x, src_y, src_x + coord.x, src_y + coord.y, moves);
     }
 }
 

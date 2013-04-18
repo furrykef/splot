@@ -1,13 +1,18 @@
 Immediate todos
 ---------------
-* MTD(f) is behaving very oddly. At 8 ply, after a1b1, vanilla searches 15,223 nodes; bitboard with BEST_FIRST on searches 27,271,531; bitboard with BEST_FIRST off searches 87,048,204!
+* Check use of ?: throughout code for precedence issues (especially with streams)
+
+* Why is MTD(f) searching many more nodes after implementing beta cutoff in vanilla Negamax's root node?
+** Must be because the best guess for the score is less accurate -- it cuts off before it gets a better idea of the score.
 
 * Check divergence between non-bitboard AI and bitboard AI. The different move ordering may be responsible for the different moves, but the score for the different moves have to be the same, or else there's a bug.
 
 * Why does Negamax BB search 2.6 million nodes on first move but vanilla only 698k? Is this entirely due to alpha-beta?
-** 5-ply search with zobrist off yields different number of nodes searched. Definitely a bug somewhere. 8,835,829 vanilla, 8,832,543 BB
+** 5-ply search with zobrist off yields different number of nodes searched.  8,835,829 vanilla, 8,832,543 BB
+*** After changing move order, I get 8,835,853 for both.
 ** 4-ply yields 292,010 vanilla, 291,936 BB
-** It's because when it finds a move with a response that ends the game, there is a beta cutoff. This happens even with alpha-beta "disabled" because the disabling sets beta to INFINITY, and the INFINITY >= INFINITY. Thus, the number of nodes searched becomes sensitive to move order.
+*** After changing move order, 292,019 for both.
+** NOT A BUG. It's because when it finds a move with a response that wins the game, there is a beta cutoff. This happens even with alpha-beta "disabled" because the disabling sets beta to INFINITY, and the INFINITY >= INFINITY. Thus, the number of nodes searched becomes sensitive to move order.
 
 * Scores don't match for opening moves between non-BB Negamax and non-BB MTD(f). The score at the first divergence is 4 for Negamax and 3 for MTD(f).
 ** The scores for the divergence do match with Zobrist off.
@@ -28,7 +33,18 @@ Capture square: A square the opponent can land on to capture a piece.
 
 AI
 --
-MTD(f) is making different moves than negamax, even with zobrist hashing off
+Bitboards are MUCH faster per node than vanilla in debug build. This may be a good incentive for keeping them.
+
+Iterative deepening should cut off search once a score of +inf has been found. No need to search to 4 ply if the game will end in 3 moves.
+
+What happens if a score of -inf is detected? Will the computer start making random moves, since no move seems better than any other? And (once we allow them) what about draws?
+* A solution here is to give the highest score to the move that defers loss the longest. Alternatively, it could return the result of the shallowest search that doesn't return a score of -inf (iterative shallowing?).
+
+Can get some randomness by sorting moves in a random order for root node before searching them (might still search clones first, though). Iterative deepening and the way MTD(f) works in general might interfere with this, though. You wouldn't want to randomize on any search other than the first (since you want to search best first), but the game's idea of the best move might change between searches. I also wouldn't be surprised if the randomness is not as uniform as it should be.
+
+I think this game will show significant even/odd swings, so NegaScout may be better than MTD(f)
+
+MTD(f) is making different moves than negamax, even with zobrist hashing off. Is this normal?
 
 Zobrist hashing can be improved by using a "hash lock" -- instead of recording the full_hash, compute and record a DIFFERENT hash. Implement by modifying calcHash to accept different tables. There is the unfortunate side effect, though, that this doubles the time spent hashing.
 

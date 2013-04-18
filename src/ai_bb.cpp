@@ -12,10 +12,10 @@ namespace
 
 int negamax_bb_root(const Board& board, int depth, int alpha, int beta, Move& move_out, int& nodes_searched);
 int negamax_bb_impl(Bitboard bb_player1, Bitboard bb_player2, int depth, int alpha, int beta, int player_sign, BitboardMove& move_out, int& nodes_searched);
-bool searchMove(const BitboardMove bbmove, int& score, ScoreType& score_type,
+bool searchMove(BitboardMove bbmove, int& score, ScoreType& score_type,
     Bitboard bb_player1, Bitboard bb_player2, Bitboard bb_me,
-    Bitboard bb_him, int depth, int& alpha, int beta, int player_sign,
-    BitboardMove& move_out, int& nodes_searched);
+    Bitboard bb_him, int depth, int& best_score, int& alpha, int beta,
+    int player_sign, BitboardMove& move_out, int& nodes_searched);
 void makeMoveBB(BitboardMove bbmove, Bitboard& me, Bitboard& him);
 int evalPositionBB(Bitboard player1, Bitboard player2);
 void convBoardToBitboards(const Board& board, Bitboard& player1, Bitboard& player2);
@@ -140,11 +140,12 @@ int negamax_bb_impl(Bitboard bb_player1, Bitboard bb_player2, int depth, int alp
     bool found_any_moves = false;
 
     // If we found a best move via transposition table, try it now.
+    int best_score = -INFINITY;
     if(BEST_FIRST && move_out.move_type != BBMOVE_NONE) {
         int score;
         if(searchMove(move_out, score, score_type, bb_player1,
-                      bb_player2, bb_me, bb_him, depth, alpha,
-                      beta, player_sign, move_out,
+                      bb_player2, bb_me, bb_him, depth, best_score,
+                      alpha, beta, player_sign, move_out,
                       nodes_searched))
         {
             // Beta cutoff
@@ -158,7 +159,6 @@ int negamax_bb_impl(Bitboard bb_player1, Bitboard bb_player2, int depth, int alp
     std::uint64_t bit = 1;
     for(int square_num = 0; square_num < 7*7; ++square_num) {
         BitboardMove bbmove(BBMOVE_NONE, 0, 0);
-
         if(bit & bb_empty) {
             // This is an empty square; try to clone into it
             if(bb_me & BITBOARD_SURROUNDS[square_num]) {
@@ -167,15 +167,25 @@ int negamax_bb_impl(Bitboard bb_player1, Bitboard bb_player2, int depth, int alp
                 bbmove.square = square_num;
                 int score;
                 if(searchMove(bbmove, score, score_type, bb_player1,
-                              bb_player2, bb_me, bb_him, depth, alpha,
-                              beta, player_sign, move_out,
+                              bb_player2, bb_me, bb_him, depth, best_score,
+                              alpha, beta, player_sign, move_out,
                               nodes_searched))
                 {
                     // Beta cutoff
                     return score;
                 }
             }
-        } else if(bit & bb_me) {
+        }
+
+        bit <<= 1;
+    }
+
+    // Now look for jumps. This is in a separate loop because I suspect
+    // clone moves tend to be better than jump moves.
+    bit = 1;
+    for(int square_num = 0; square_num < 7*7; ++square_num) {
+        BitboardMove bbmove(BBMOVE_NONE, 0, 0);
+        if(bit & bb_me) {
             // This is one of my squares; try to generate jumps
             const BitboardJump* jumps = BITBOARD_JUMPS[square_num];
             for(int i = 0; i < NUM_JUMPS; ++i) {
@@ -186,8 +196,8 @@ int negamax_bb_impl(Bitboard bb_player1, Bitboard bb_player2, int depth, int alp
                     bbmove.jump_type = i;
                     int score;
                     if(searchMove(bbmove, score, score_type, bb_player1,
-                                  bb_player2, bb_me, bb_him, depth, alpha,
-                                  beta, player_sign, move_out,
+                                  bb_player2, bb_me, bb_him, depth, best_score,
+                                  alpha, beta, player_sign, move_out,
                                   nodes_searched))
                     {
                         // Beta cutoff
@@ -218,8 +228,8 @@ int negamax_bb_impl(Bitboard bb_player1, Bitboard bb_player2, int depth, int alp
 // Returns true if there's been a beta cutoff, false if not
 bool searchMove(BitboardMove bbmove, int& score, ScoreType& score_type,
     Bitboard bb_player1, Bitboard bb_player2, Bitboard bb_me,
-    Bitboard bb_him, int depth, int& alpha, int beta, int player_sign,
-    BitboardMove& move_out, int& nodes_searched)
+    Bitboard bb_him, int depth, int& best_score, int& alpha, int beta,
+    int player_sign, BitboardMove& move_out, int& nodes_searched)
 {
     Bitboard bb_me_after = bb_me;
     Bitboard bb_him_after = bb_him;
@@ -233,15 +243,18 @@ bool searchMove(BitboardMove bbmove, int& score, ScoreType& score_type,
     }
     BitboardMove dummy;     // @TODO@ -- make unnecessary
     score = -negamax_bb_impl(bb_p1_after, bb_p2_after, depth - 1, -beta, -alpha, -player_sign, dummy, nodes_searched);
+    if(score > best_score) {
+        best_score = score;
+        move_out = bbmove;
+    }
     if(score >= beta) {
         move_out = bbmove;
         ZobristValue zobrist_value(score, SCORE_BETA, depth, move_out);
         setZobristValueBB(bb_player1, bb_player2, player_sign, zobrist_value);
         return true;
-    } else if(score > alpha) {
+    } else if(score > alpha) {        
         alpha = score;
         score_type = SCORE_EXACT;
-        move_out = bbmove;
     }
     return false;
 }

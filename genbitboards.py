@@ -15,7 +15,7 @@ const Bitboard BITBOARD_SURROUNDS[7*7] = {
     %(BITBOARD_SURROUNDS)s
 };
 
-const BitboardJump BITBOARD_JUMPS[49][16] = {
+const BitboardJump BITBOARD_JUMPS[49][NUM_JUMPS] = {
     %(BITBOARD_JUMPS)s
 };
 

@@ -49,7 +49,7 @@ class Board
     Player &operator()(const Coord& coord)
     {
         assert(isInRange(coord));
-        return m_boarddata[coord.x][coord.y];
+        return m_boarddata[coord.y][coord.x];
     }
 
     Player &operator()(int x, int y)
@@ -61,7 +61,7 @@ class Board
     const Player &operator()(const Coord& coord) const
     {
         assert(isInRange(coord));
-        return m_boarddata[coord.x][coord.y];
+        return m_boarddata[coord.y][coord.x];
     }
 
     // @TODO@ -- fix duplicate code
@@ -86,7 +86,7 @@ class Board
         int count = 0;
         for(int y = 0; y < 7; ++y) {
             for(int x = 0; x < 7; ++x) {
-                if(m_boarddata[x][y] == player) {
+                if(m_boarddata[y][x] == player) {
                     ++count;
                 }
             }
