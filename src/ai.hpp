@@ -6,8 +6,10 @@
 
 const bool ENABLE_ALPHA_BETA = true;
 const bool ENABLE_ZOBRIST = true;
-const int MAX_PLY = 7;                  // must be > 0
-const bool BEST_FIRST = true;
+const int MAX_PLY = 8;                  // must be > 0
+const bool ENABLE_BEST_FIRST = true;
+const bool ENABLE_NULL_MOVE = false;
+const int NULL_MOVE_REDUCTION = 2;      // must be > 0
 
 // Arbitrary value. Should fit into a short (for zobrist hashing).
 // It's tempting to use SHRT_MIN and SHRT_MAX for -inf and +inf, but this is

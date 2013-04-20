@@ -11,15 +11,15 @@ def main():
 // DO NOT MODIFY THIS FILE. Modify genbitboards.py and generate a new one.
 #include "bitboards.hpp"
 
-const Bitboard BITBOARD_SURROUNDS[7*7] = {
+const Bitboard BITBOARD_SURROUNDS[NUM_SQUARES] = {
     %(BITBOARD_SURROUNDS)s
 };
 
-const BitboardJump BITBOARD_JUMPS[49][NUM_JUMPS] = {
+const BitboardJump BITBOARD_JUMPS[NUM_SQUARES][NUM_JUMPS] = {
     %(BITBOARD_JUMPS)s
 };
 
-const Coord JUMP_COORDS[16] = {
+const Coord JUMP_COORDS[NUM_JUMPS] = {
     %(JUMP_COORDS)s
 };
 """) % locals()

@@ -13,8 +13,8 @@ struct BitboardJump
 };
 
 const int NUM_JUMPS = 16;
-extern const Bitboard BITBOARD_SURROUNDS[7*7];
-extern const BitboardJump BITBOARD_JUMPS[49][NUM_JUMPS];
+extern const Bitboard BITBOARD_SURROUNDS[NUM_SQUARES];
+extern const BitboardJump BITBOARD_JUMPS[NUM_SQUARES][NUM_JUMPS];
 extern const Coord JUMP_COORDS[NUM_JUMPS];
 
 int countSetBits(Bitboard bitboard);

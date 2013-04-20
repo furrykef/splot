@@ -115,8 +115,8 @@ int main()
 
 void initBoard(Board& board)
 {
-    for(int y = 0; y < 7; ++y) {
-        for(int x = 0; x < 7; ++x) {
+    for(int y = 0; y < BOARD_SIZE; ++y) {
+        for(int x = 0; x < BOARD_SIZE; ++x) {
             board(x, y) = EMPTY_SQUARE;
         }
     }
@@ -132,9 +132,9 @@ void drawBoard(const Board& board)
 
     cout << "  A B C D E F G" << endl;
     cout << " ---------------" << endl;
-    for(int y = 0; y < 7; ++y) {
+    for(int y = 0; y < BOARD_SIZE; ++y) {
         cout << (y + 1) << "|";
-        for(int x = 0; x < 7; ++x) {
+        for(int x = 0; x < BOARD_SIZE; ++x) {
             WORD color = 0;
             switch(board(x, y)) {
               case EMPTY_SQUARE:    break;
@@ -264,8 +264,8 @@ void saveGame(const Board& board, const std::string& filename)
     if(outfile.fail()) {
         std::cout << "Failed to write file." << std::endl;
     }
-    for(int y = 0; y < 7; ++y) {
-        for(int x = 0; x < 7; ++x) {
+    for(int y = 0; y < BOARD_SIZE; ++y) {
+        for(int x = 0; x < BOARD_SIZE; ++x) {
             outfile << unsigned char(board(x, y));
         }
     }
@@ -280,8 +280,8 @@ void loadGame(Board& board, const std::string& filename)
     if(infile.fail()) {
         std::cout << "Failed to load file." << std::endl;
     }
-    for(int y = 0; y < 7; ++y) {
-        for(int x = 0; x < 7; ++x) {
+    for(int y = 0; y < BOARD_SIZE; ++y) {
+        for(int x = 0; x < BOARD_SIZE; ++x) {
             unsigned char player;
             infile >> player;
             board(x, y) = Player(player);

@@ -4,6 +4,9 @@
 #include <cassert>
 #include <cstring>
 
+const int BOARD_SIZE = 7;
+const int NUM_SQUARES = BOARD_SIZE*BOARD_SIZE;
+
 // Order matters! calcHash assumes EMPTY_SQUARE = 0, etc.
 enum Player
 {
@@ -72,8 +75,8 @@ class Board
 
     static bool isInRange(const Coord& coord)
     {
-        return (coord.x >= 0 && coord.x < 7 &&
-                coord.y >= 0 && coord.y < 7);
+        return (coord.x >= 0 && coord.x < BOARD_SIZE &&
+                coord.y >= 0 && coord.y < BOARD_SIZE);
     }
 
     static bool isOutOfRange(const Coord& coord)
@@ -84,8 +87,8 @@ class Board
     int countPieces(Player player) const
     {
         int count = 0;
-        for(int y = 0; y < 7; ++y) {
-            for(int x = 0; x < 7; ++x) {
+        for(int y = 0; y < BOARD_SIZE; ++y) {
+            for(int x = 0; x < BOARD_SIZE; ++x) {
                 if(m_boarddata[y][x] == player) {
                     ++count;
                 }
@@ -95,7 +98,7 @@ class Board
     }
 
   private:
-    Player m_boarddata[7][7];
+    Player m_boarddata[BOARD_SIZE][BOARD_SIZE];
 };
 
 #endif

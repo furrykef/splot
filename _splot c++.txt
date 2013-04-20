@@ -1,9 +1,9 @@
 Immediate todos
 ---------------
-* Check use of ?: throughout code for precedence issues (especially with streams)
-
-* Why is MTD(f) searching many more nodes after implementing beta cutoff in vanilla Negamax's root node?
-** Must be because the best guess for the score is less accurate -- it cuts off before it gets a better idea of the score.
+* NULL MOVE HEURISTIC
+** It's not very effective, is it? But try it in more complex positions to be sure.
+** Do we turn off writing to transposition table inside null branches or not?
+** Maybe allow recursive null moves (but don't search null move if parent was a null move)
 
 * Check divergence between non-bitboard AI and bitboard AI. The different move ordering may be responsible for the different moves, but the score for the different moves have to be the same, or else there's a bug.
 
@@ -33,6 +33,10 @@ Capture square: A square the opponent can land on to capture a piece.
 
 AI
 --
+Getting cute with MTD(f): check how many pieces could be captured, on average, in the leaf nodes of the tree.
+
+Hypothesis: even-numbered plies work best, because it doesn't matter if you grab a lot of pieces only to lose a large number of them one ply later.
+
 Bitboards are MUCH faster per node than vanilla in debug build. This may be a good incentive for keeping them.
 
 Iterative deepening should cut off search once a score of +inf has been found. No need to search to 4 ply if the game will end in 3 moves.
@@ -67,6 +71,11 @@ Repetition could complicate searches (i.e. if CPU returns to a previous position
 I'm thinking a piece is worth 100 points, a capture square is worth -N points (to encourage the algorithm to err on the side of reducing its capture squares), where N is the number of pieces that will be captured if the opponent moves there. (Calculate by iterating through the board, and if piece is of our color, adding up all the empty squares that neighbor it)
 
 I'm thinking of using iterative deepening for 2 or 3 ply before switching to Negascout or MTD(f). This increases the probability of having found a decent move if the search is forced to terminate early.
+
+
+Time control
+------------
+Suppose you have 5 seconds for the next move. If after any ply more than 2.5 seconds have elapsed, you can probably terminate, since it's doubtful you will complete another ply with half your time remaining.
 
 
 Testing AI

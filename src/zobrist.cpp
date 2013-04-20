@@ -8,7 +8,7 @@ const size_t ZOBRIST_TABLE_SIZE = 64 * 0x100000;
 ZobristValue zobrist_table[ZOBRIST_TABLE_SIZE];
 
 // True random numbers generated with HotBits: http://www.fourmilab.ch/hotbits/
-const ZobristHash ZOBRIST_CODES[7*7*2] = {
+const ZobristHash ZOBRIST_CODES[NUM_SQUARES*2] = {
     0xA4B992578B5B3456LL, 0xF330A30C9D0730D9LL, 0xB3E85D8D02B651F1LL, 0x573510FFF1D1F459LL, 0xED1AEE5209AF033DLL,
     0xFA38FBC2CB4792E9LL, 0x36EFBF736EEF226BLL, 0x11FF729BC72587A6LL, 0xF76844CEE5CFFD46LL, 0x81B69742FDF65311LL,
     0xF9B3F146F21B28FALL, 0x7B21F2EB7BDAB97ELL, 0xBCA3C499F196C1EBLL, 0x964031EBA47FBB2BLL, 0xF023A91ED963BA6ELL,
@@ -99,13 +99,14 @@ ZobristHash calcHash(const Board& board, int player_sign)
 {
     ZobristHash hash = 0;
     size_t count = 0;
-    for(int y = 0; y < 7; ++y) {
-        for(int x = 0; x < 7; ++x) {
+    for(int y = 0; y < BOARD_SIZE; ++y) {
+        for(int x = 0; x < BOARD_SIZE; ++x) {
             Player board_cell = board(x, y);
             assert(board_cell <= PLAYER2);
             if(board_cell != EMPTY_SQUARE) {
-                hash ^= ZOBRIST_CODES[(board_cell - 1) * 7*7 + count++];
+                hash ^= ZOBRIST_CODES[(board_cell - 1) * NUM_SQUARES + count];
             }
+            ++count;
         }
     }
     if(player_sign == 1) {
@@ -119,11 +120,11 @@ ZobristHash calcHashBB(Bitboard player1, Bitboard player2, int player_sign)
     // @TODO@ -- can be optimized with LUTs. Try profiling.
     ZobristHash hash = 0;
     Bitboard bit = 1;
-    for(int square_num = 0; square_num < 7*7; ++square_num) {
+    for(int square_num = 0; square_num < NUM_SQUARES; ++square_num) {
         if(player1 & bit) {
-            hash ^= ZOBRIST_CODES[7*7 + square_num];
+            hash ^= ZOBRIST_CODES[square_num];
         } else if(player2 & bit) {
-            hash ^= ZOBRIST_CODES[7*7*2 + square_num];
+            hash ^= ZOBRIST_CODES[NUM_SQUARES + square_num];
         }
         bit <<= 1;
     }

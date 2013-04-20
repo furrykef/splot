@@ -51,6 +51,7 @@ int negamax_iterative(const Board& board, Move& move_out, int& nodes_searched)
 }
 
 // TRANSPOSITION TABLE MUST BE INITIALIZED BEFORE CALLING
+// @TODO@ -- code duplication with BB version
 int mtdf(const Board& board, Move& move_out, int& nodes_searched)
 {
     int f = 0;
@@ -195,8 +196,9 @@ int evalPosition(const Board& board)
 {
     int num_pieces_p1 = board.countPieces(PLAYER1);
     int num_pieces_p2 = board.countPieces(PLAYER2);
-    // @TODO@ -- hardcoded board size (the 49)
-    if(num_pieces_p1 == 0 || num_pieces_p2 == 0 || num_pieces_p1 + num_pieces_p2 == 49) {
+    // @TODO@ -- assumes board has NUM_SQUARES empty squares
+    // (won't be true if we allow squares into which it is illegal to move)
+    if(num_pieces_p1 == 0 || num_pieces_p2 == 0 || num_pieces_p1 + num_pieces_p2 == NUM_SQUARES) {
         if(num_pieces_p2 > num_pieces_p1) {
             return INFINITY;
         } else {
@@ -218,8 +220,8 @@ void findMoves(const Board& board, Player who, vector<Move>& moves)
 
 void findLegalClones(const Board& board, Player who, vector<Move>& moves)
 {
-    for(int y = 0; y < 7; ++y) {
-        for(int x = 0; x < 7; ++x) {
+    for(int y = 0; y < BOARD_SIZE; ++y) {
+        for(int x = 0; x < BOARD_SIZE; ++x) {
             if(board(x, y) == EMPTY_SQUARE) {
                 appendCloneIfFound(board, x, y, who, moves);
             }
@@ -245,8 +247,8 @@ void appendCloneIfFound(const Board& board, int dst_x, int dst_y, Player who, ve
 
 void findLegalJumps(const Board& board, Player who, vector<Move>& moves)
 {
-    for(int y = 0; y < 7; ++y) {
-        for(int x = 0; x < 7; ++x) {
+    for(int y = 0; y < BOARD_SIZE; ++y) {
+        for(int x = 0; x < BOARD_SIZE; ++x) {
             if(board(x, y) == who) {
                 appendLegalJumps(board, x, y, moves);
             }

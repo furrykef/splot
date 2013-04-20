@@ -3,7 +3,7 @@
 // DO NOT MODIFY THIS FILE. Modify genbitboards.py and generate a new one.
 #include "bitboards.hpp"
 
-const Bitboard BITBOARD_SURROUNDS[7*7] = {
+const Bitboard BITBOARD_SURROUNDS[NUM_SQUARES] = {
     0x0000000000000182LL,
     0x0000000000000385LL,
     0x000000000000070aLL,
@@ -55,7 +55,7 @@ const Bitboard BITBOARD_SURROUNDS[7*7] = {
     0x0000830000000000LL
 };
 
-const BitboardJump BITBOARD_JUMPS[49][NUM_JUMPS] = {
+const BitboardJump BITBOARD_JUMPS[NUM_SQUARES][NUM_JUMPS] = {
     {{0x0000000000000000LL, 0x0000000000000000LL},
      {0x0000000000000000LL, 0x0000000000000000LL},
      {0x0000000000000000LL, 0x0000000000000000LL},
@@ -842,7 +842,7 @@ const BitboardJump BITBOARD_JUMPS[49][NUM_JUMPS] = {
      {0x0000008000000000LL, 0x0000e14380000000LL}}
 };
 
-const Coord JUMP_COORDS[16] = {
+const Coord JUMP_COORDS[NUM_JUMPS] = {
     Coord(-2, -2),
     Coord(-1, -2),
     Coord(0, -2),
