@@ -5,6 +5,8 @@ Immediate todos
 ** Do we turn off writing to transposition table inside null branches or not?
 ** Maybe allow recursive null moves (but don't search null move if parent was a null move)
 
+* Change zobrist to use upper and lower bound, not score and bound type. While the latter works for normal alpha-beta, the former is supposed to work much better with MTD(f).
+
 * Check divergence between non-bitboard AI and bitboard AI. The different move ordering may be responsible for the different moves, but the score for the different moves have to be the same, or else there's a bug.
 
 * Why does Negamax BB search 2.6 million nodes on first move but vanilla only 698k? Is this entirely due to alpha-beta?
@@ -33,7 +35,7 @@ Capture square: A square the opponent can land on to capture a piece.
 
 AI
 --
-Getting cute with MTD(f): check how many pieces could be captured, on average, in the leaf nodes of the tree.
+Try Enhanced Transposition Cutoffs (ETC) -- basically, check if any children nodes are in the transposition table and cut off if there is a beta cutoff. This is expensive, so is only worth doing higher up in the tree.
 
 Hypothesis: even-numbered plies work best, because it doesn't matter if you grab a lot of pieces only to lose a large number of them one ply later.
 
@@ -60,9 +62,7 @@ Always examine one ply deeper when there is only one legal move (repeat as neces
 
 Should give higher scores to winning the game in fewer moves, so the computer always plays the quickest win, not the first it finds. (If the win is only a few ply away, though, iterative deepening will catch it at the shallowest possible depth.)
 
-Try null move heuristic
-
-Try killer move heuristic
+Consider killer move heuristic
 
 Consider quiescence search: after a certain number of ply, examine only moves that capture. But unlike chess, I think a higher proportion of possible moves will be capture moves, and also unlike chess, the number of pieces does not go down with each capture.
 
