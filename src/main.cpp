@@ -230,7 +230,9 @@ bool askForHumansMove(Board& board, Move &move)
 void decideCpusMove(const Board& board, Move& move, int which_ai)
 {
     using namespace std::chrono;
-    initZobristTable();
+    if(CLEAR_ZOBRIST_EVERY_TIME) {
+        initZobristTable();
+    }
     int nodes_searched = 0;
     AiFuncPtr ai;
     switch(which_ai) {

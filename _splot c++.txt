@@ -1,11 +1,15 @@
 Immediate todos
 ---------------
+* What happens in MTD(f) when the CPU is about to lose the game? Is it gonna slide the null window towards -INFINITY one at a time, since it will fail low over and over?
+** May not be a problem in practice. If you're about to lose, it doesn't really matter what move you play, and you'll find at least one move if you're doing iterative deepening, so the time limit might take care of it.
+
+* Do we really need to clear transposition table on every move? (Would make sense with more than one AI player, though, since they may have different personalities)
+
 * NULL MOVE HEURISTIC
+** Make sure null move is never recorded as best move in zobrist!
 ** It's not very effective, is it? But try it in more complex positions to be sure.
 ** Do we turn off writing to transposition table inside null branches or not?
 ** Maybe allow recursive null moves (but don't search null move if parent was a null move)
-
-* Change zobrist to use upper and lower bound, not score and bound type. While the latter works for normal alpha-beta, the former is supposed to work much better with MTD(f).
 
 * Check divergence between non-bitboard AI and bitboard AI. The different move ordering may be responsible for the different moves, but the score for the different moves have to be the same, or else there's a bug.
 

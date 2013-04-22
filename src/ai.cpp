@@ -68,12 +68,16 @@ int mtdf_impl(const Board& board, int depth, int f, Move& move_out, int& nodes_s
     int upper_bound = INFINITY;
     int beta;
     do {
+        Move move;
         beta = (score == lower_bound) ? score + 1 : score;
-        score = fp_negamax_root(board, depth, beta - 1, beta, move_out, nodes_searched);
+        score = fp_negamax_root(board, depth, beta - 1, beta, move, nodes_searched);
         if(score < beta) {
+            // Failed low
             upper_bound = score;
         } else {
+            // Failed high or is exact score
             lower_bound = score;
+            move_out = move;
         }
     } while(lower_bound < upper_bound);
 
@@ -124,35 +128,25 @@ int negamax_impl(const Board& board, int depth, int alpha, int beta, int player_
         beta = INFINITY;
     }
 
+    ZobristValue& zv = getZobristValue(board, player_sign);
     if(ENABLE_ZOBRIST) {
-        ZobristValue zobrist_value = getZobristValue(board, player_sign);
-        if(zobrist_value.depth >= depth) {
-            switch(zobrist_value.score_type) {
-              case SCORE_EXACT:
-                return zobrist_value.score;
-
-              case SCORE_ALPHA:
-                if(zobrist_value.score <= alpha) {
-                    return alpha;
-                }
-                break;
-
-              case SCORE_BETA:
-                if(zobrist_value.score >= beta) {
-                    return beta;
-                }
-                break;
-
-              default:
-                assert(false);
+        if(zv.depth >= depth) {
+            if(zv.lower_bound >= beta) {
+                return zv.lower_bound;
+            } else if(zv.upper_bound <= alpha) {
+                return zv.upper_bound;
             }
+            alpha = std::max(alpha, int(zv.lower_bound));
+            beta = std::min(beta, int(zv.upper_bound));
         }
+        zv.depth = depth;
     }
 
     if(depth == 0) {
         int score = player_sign * evalPosition(board);
-        ZobristValue zobrist_value(score, SCORE_EXACT, depth);
-        setZobristValue(board, player_sign, zobrist_value);
+        zv.lower_bound = score;
+        zv.upper_bound = score;
+        zv.best_move.move_type = BBMOVE_NONE;
         return score;
     }
 
@@ -169,24 +163,21 @@ int negamax_impl(const Board& board, int depth, int alpha, int beta, int player_
         return player_sign * evalPosition(board);
     }
 
-    ScoreType score_type = SCORE_ALPHA;
-
     for(const Move &move : moves) {
         Board board_after_move(board);
         makeMove(board_after_move, move);
         int score = -negamax_impl(board_after_move, depth - 1, -beta, -alpha, -player_sign, nodes_searched);
         if(score >= beta) {
-            ZobristValue zobrist_value(score, SCORE_BETA, depth);
-            setZobristValue(board, player_sign, zobrist_value);
+            zv.lower_bound = score;
             return score;
         } else if(score > alpha) {
             alpha = score;
-            score_type = SCORE_EXACT;
+            zv.lower_bound = score;
+            zv.upper_bound = score;
         }
     }
 
-    ZobristValue zobrist_value(alpha, score_type, depth);
-    setZobristValue(board, player_sign, zobrist_value);
+    zv.upper_bound = alpha;
     return alpha;
 }
 
@@ -200,9 +191,9 @@ int evalPosition(const Board& board)
     // (won't be true if we allow squares into which it is illegal to move)
     if(num_pieces_p1 == 0 || num_pieces_p2 == 0 || num_pieces_p1 + num_pieces_p2 == NUM_SQUARES) {
         if(num_pieces_p2 > num_pieces_p1) {
-            return INFINITY;
+            return WIN;
         } else {
-            return -INFINITY;
+            return LOSS;
         }
     }
     return num_pieces_p2 - num_pieces_p1;

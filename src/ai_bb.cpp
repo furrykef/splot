@@ -12,7 +12,7 @@ namespace
 
 int negamax_bb_root(const Board& board, int depth, int alpha, int beta, Move& move_out, int& nodes_searched);
 int negamax_bb_impl(Bitboard bb_player1, Bitboard bb_player2, int depth, int alpha, int beta, int player_sign, bool is_root, bool in_null_branch, BitboardMove& move_out, int& nodes_searched);
-bool searchMove(BitboardMove bbmove, int& score, ScoreType& score_type,
+bool searchMove(BitboardMove bbmove, int& score, ZobristValue& zv,
     Bitboard bb_player1, Bitboard bb_player2, Bitboard bb_me,
     Bitboard bb_him, int depth, int& best_score, int& alpha, int beta,
     int player_sign, bool allow_null, BitboardMove& move_out, int& nodes_searched);
@@ -85,46 +85,35 @@ int negamax_bb_impl(Bitboard bb_player1, Bitboard bb_player2, int depth, int alp
         beta = INFINITY;
     }
 
+    ZobristValue& zv = getZobristValueBB(bb_player1, bb_player2, player_sign);
     if(ENABLE_ZOBRIST) {
-        ZobristValue zobrist_value = getZobristValueBB(bb_player1, bb_player2, player_sign);
-        if(zobrist_value.depth >= depth) {
+        if(zv.depth >= depth) {
             // @TODO@ -- should check if zobrist_value.best_move is a legal move.
             // If it is not, there was a hash collision (or a bug, but hopefully not).
             // In that case, not only can we invalidate the score, but we know not to
             // try playing it as the best move. (In extremely rare cases, unlikely to
             // ever occur in a real game, this could result in the root node of the
             // tree returning an illegal move as the move to play!)
-            switch(zobrist_value.score_type) {
-              case SCORE_EXACT:
-                return zobrist_value.score;
-
-              case SCORE_ALPHA:
-                if(zobrist_value.score <= alpha) {
-                    return alpha;
-                }
-                break;
-
-              case SCORE_BETA:
-                if(zobrist_value.score >= beta) {
-                    return beta;
-                }
-                break;
-
-              default:
-                assert(false);
+            if(zv.lower_bound >= beta) {
+                return zv.lower_bound;
+            } else if(zv.upper_bound <= alpha) {
+                return zv.upper_bound;
             }
+            alpha = std::max(alpha, int(zv.lower_bound));
+            beta = std::min(beta, int(zv.upper_bound));
         }
+        zv.depth = depth;
         // @TODO@ -- move this into its own variable?
-        move_out = zobrist_value.best_move;
+        move_out = zv.best_move;
     } else {
         move_out.move_type = BBMOVE_NONE;
     }
 
     if(depth == 0) {
         int score = player_sign * evalPositionBB(bb_player1, bb_player2);
-        ZobristValue zobrist_value(score, SCORE_EXACT, depth);
-        zobrist_value.best_move.move_type = BBMOVE_NONE;
-        setZobristValueBB(bb_player1, bb_player2, player_sign, zobrist_value);
+        zv.lower_bound = score;
+        zv.upper_bound = score;
+        zv.best_move.move_type = BBMOVE_NONE;
         return score;
     }
 
@@ -138,17 +127,17 @@ int negamax_bb_impl(Bitboard bb_player1, Bitboard bb_player2, int depth, int alp
     }
 
     int best_score = -INFINITY;
-    ScoreType score_type = SCORE_ALPHA;
     bool found_any_moves = false;
 
     if(ENABLE_NULL_MOVE && depth > NULL_MOVE_REDUCTION && !in_null_branch && !is_root) {
         BitboardMove null_move(BBMOVE_NULL, 0, 0);
         int score;
-        // The depth - 1 means we're searching two ply shallower
-        if(searchMove(null_move, score, score_type, bb_player1, bb_player2,
+        // We use a null window here since we only care if the score >= beta
+        int beta_minus_one = beta - 1;      // we have to pass in alpha by reference
+        if(searchMove(null_move, score, zv, bb_player1, bb_player2,
                       bb_me, bb_him, depth - (NULL_MOVE_REDUCTION - 1),
-                      best_score, alpha, beta, player_sign, true, move_out,
-                      nodes_searched))
+                      best_score, beta_minus_one, beta, player_sign, true,
+                      move_out, nodes_searched))
         {
             // Beta cutoff
             return score;
@@ -158,7 +147,7 @@ int negamax_bb_impl(Bitboard bb_player1, Bitboard bb_player2, int depth, int alp
     // If we found a best move via transposition table, try it now.
     if(ENABLE_BEST_FIRST && move_out.move_type != BBMOVE_NONE) {
         int score;
-        if(searchMove(move_out, score, score_type, bb_player1,
+        if(searchMove(move_out, score, zv, bb_player1,
                       bb_player2, bb_me, bb_him, depth, best_score,
                       alpha, beta, player_sign, in_null_branch, move_out,
                       nodes_searched))
@@ -181,7 +170,7 @@ int negamax_bb_impl(Bitboard bb_player1, Bitboard bb_player2, int depth, int alp
                 bbmove.move_type = BBMOVE_CLONE;
                 bbmove.square = square_num;
                 int score;
-                if(searchMove(bbmove, score, score_type, bb_player1,
+                if(searchMove(bbmove, score, zv, bb_player1,
                               bb_player2, bb_me, bb_him, depth, best_score,
                               alpha, beta, player_sign, in_null_branch, move_out,
                               nodes_searched))
@@ -210,7 +199,7 @@ int negamax_bb_impl(Bitboard bb_player1, Bitboard bb_player2, int depth, int alp
                     bbmove.square = square_num;
                     bbmove.jump_type = i;
                     int score;
-                    if(searchMove(bbmove, score, score_type, bb_player1,
+                    if(searchMove(bbmove, score, zv, bb_player1,
                                   bb_player2, bb_me, bb_him, depth, best_score,
                                   alpha, beta, player_sign, in_null_branch, move_out,
                                   nodes_searched))
@@ -235,15 +224,13 @@ int negamax_bb_impl(Bitboard bb_player1, Bitboard bb_player2, int depth, int alp
         return player_sign * evalPositionBB(bb_player1, bb_player2);
     }
 
-    if(!in_null_branch) {
-        ZobristValue zobrist_value(alpha, score_type, depth, move_out);
-        setZobristValueBB(bb_player1, bb_player2, player_sign, zobrist_value);
-    }
+    zv.upper_bound = alpha;
+    zv.best_move = BitboardMove(BBMOVE_NONE, 0, 0);
     return alpha;
 }
 
 // Returns true if there's been a beta cutoff, false if not
-bool searchMove(BitboardMove bbmove, int& score, ScoreType& score_type,
+bool searchMove(BitboardMove bbmove, int& score, ZobristValue& zv,
     Bitboard bb_player1, Bitboard bb_player2, Bitboard bb_me,
     Bitboard bb_him, int depth, int& best_score, int& alpha, int beta,
     int player_sign, bool in_null_branch, BitboardMove& move_out, int& nodes_searched)
@@ -265,14 +252,18 @@ bool searchMove(BitboardMove bbmove, int& score, ScoreType& score_type,
         move_out = bbmove;
     }
     if(score >= beta) {
-        if(!in_null_branch) {
-            ZobristValue zobrist_value(score, SCORE_BETA, depth, move_out);
-            setZobristValueBB(bb_player1, bb_player2, player_sign, zobrist_value);
+        zv.lower_bound = score;
+        if(!move_out.move_type == BBMOVE_NONE) {
+            zv.best_move = move_out;
         }
         return true;
-    } else if(score > alpha) {        
+    } else if(score > alpha) {
         alpha = score;
-        score_type = SCORE_EXACT;
+        zv.lower_bound = score;
+        zv.upper_bound = score;
+        if(!move_out.move_type == BBMOVE_NONE) {
+            zv.best_move = move_out;
+        }
     }
     return false;
 }
@@ -314,9 +305,9 @@ int evalPositionBB(Bitboard player1, Bitboard player2)
     // (won't be true if we allow squares into which it is illegal to move)
     if(num_pieces_p1 == 0 || num_pieces_p2 == 0 || num_pieces_p1 + num_pieces_p2 == NUM_SQUARES) {
         if(num_pieces_p2 > num_pieces_p1) {
-            return INFINITY;
+            return WIN;
         } else {
-            return -INFINITY;
+            return LOSS;
         }
     }
     return num_pieces_p2 - num_pieces_p1;

@@ -1,6 +1,6 @@
 #include <cassert>
 #include <cstdlib>
-#include <unordered_map>
+#include <functional>
 #include "zobrist.hpp"
 
 const size_t ZOBRIST_TABLE_SIZE = 64 * 0x100000;
@@ -36,64 +36,87 @@ const ZobristHash PLAYER2_TURN_CODE = 0x431D89EC63B226D7LL;
 
 namespace
 {
+
+ZobristValue& getZobristValueImpl(std::function<ZobristHash()> calc_hash);
+void setZobristValueImpl(std::function<ZobristHash()> calc_hash, ZobristValue& value);
 ZobristHash calcHash(const Board& board, int player_sign);
 ZobristHash calcHashBB(Bitboard player1, Bitboard player2, int player_sign);
+
 }
 
 void initZobristTable()
 {
     // Mark everything in the table as invalid
     for(ZobristValue& value : zobrist_table) {
-        value.depth = -1;
-        value.best_move.move_type = BBMOVE_NONE;
+        value = ZobristValue();
     }
 }
 
 // player_sign is 1 for AI, -1 for human
 // Remember, depth of -1 signifies the whole ZobristValue is invalid
-ZobristValue getZobristValue(const Board& board, int player_sign)
+ZobristValue& getZobristValue(const Board& board, int player_sign)
 {
-    ZobristHash hash = calcHash(board, player_sign);
-    ZobristValue value = zobrist_table[hash % ZOBRIST_TABLE_SIZE];
-    if(value.full_hash != hash) {
-        // The short hash (i.e. mod ZOBRIST_TABLE_SIZE) collided, but the full hash did not.
-        // That means this result is spurious; invalidate it.
-        value.depth = -1;
-    }
-    return value;
+    return getZobristValueImpl(
+        [board, player_sign]() {
+            return calcHash(board, player_sign);
+        }
+    );
 }
 
 void setZobristValue(const Board& board, int player_sign, ZobristValue& value)
 {
-    ZobristHash hash = calcHash(board, player_sign);
-    value.full_hash = hash;
-    zobrist_table[hash % ZOBRIST_TABLE_SIZE] = value;
+    return setZobristValueImpl(
+        [board, player_sign]() {
+            return calcHash(board, player_sign);
+        },
+        value
+    );
 }
 
 
-// @TODO@ -- code duplication with non-BB versions
-ZobristValue getZobristValueBB(Bitboard player1, Bitboard player2, int player_sign)
+ZobristValue& getZobristValueBB(Bitboard player1, Bitboard player2, int player_sign)
 {
-    ZobristHash hash = calcHashBB(player1, player2, player_sign);
-    ZobristValue value = zobrist_table[hash % ZOBRIST_TABLE_SIZE];
-    if(value.full_hash != hash) {
-        // The short hash (i.e. mod ZOBRIST_TABLE_SIZE) collided, but the full hash did not.
-        // That means this result is spurious; invalidate it.
-        value.depth = -1;
-    }
-    return value;
+    return getZobristValueImpl(
+        [player1, player2, player_sign]() {
+            return calcHashBB(player1, player2, player_sign);
+        }
+    );
 }
 
-// @TODO@ -- code duplication with non-BB versions
-void setZobristValueBB(Bitboard player1, Bitboard player2, int player_sign, ZobristValue &value)
+void setZobristValueBB(Bitboard player1, Bitboard player2, int player_sign, ZobristValue& value)
 {
-    ZobristHash hash = calcHashBB(player1, player2, player_sign);
-    value.full_hash = hash;
-    zobrist_table[hash % ZOBRIST_TABLE_SIZE] = value;
+    return setZobristValueImpl(
+        [player1, player2, player_sign]() {
+            return calcHashBB(player1, player2, player_sign);
+        },
+        value
+    );
 }
 
 namespace
 {
+
+ZobristValue& getZobristValueImpl(std::function<ZobristHash()> calc_hash)
+{
+    ZobristHash hash = calc_hash();
+    ZobristValue& value = zobrist_table[hash % ZOBRIST_TABLE_SIZE];
+    if(value.full_hash != hash) {
+        // The short hash (i.e. mod ZOBRIST_TABLE_SIZE) collided, but the full hash did not.
+        // That means this result is spurious; invalidate it.
+        // @TODO@ -- is it really wise to clear entry in the actual table?
+        // Sometimes the AI does read the transposition table without writing it.
+        value = ZobristValue();
+        value.full_hash = hash;
+    }
+    return value;
+}
+
+void setZobristValueImpl(std::function<ZobristHash()> calc_hash, ZobristValue& value)
+{
+    ZobristHash hash = calc_hash();
+    value.full_hash = hash;
+    zobrist_table[hash % ZOBRIST_TABLE_SIZE] = value;
+}
 
 ZobristHash calcHash(const Board& board, int player_sign)
 {
