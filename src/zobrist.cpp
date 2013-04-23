@@ -37,8 +37,8 @@ const ZobristHash PLAYER2_TURN_CODE = 0x431D89EC63B226D7LL;
 namespace
 {
 
-ZobristValue& getZobristValueImpl(std::function<ZobristHash()> calc_hash);
-void setZobristValueImpl(std::function<ZobristHash()> calc_hash, ZobristValue& value);
+ZobristValue& getZobristValueImpl(ZobristHash hash);
+void setZobristValueImpl(ZobristHash hash, ZobristValue& value);
 ZobristHash calcHash(const Board& board, int player_sign);
 ZobristHash calcHashBB(Bitboard player1, Bitboard player2, int player_sign);
 
@@ -56,49 +56,34 @@ void initZobristTable()
 // Remember, depth of -1 signifies the whole ZobristValue is invalid
 ZobristValue& getZobristValue(const Board& board, int player_sign)
 {
-    return getZobristValueImpl(
-        [board, player_sign]() {
-            return calcHash(board, player_sign);
-        }
-    );
+    ZobristHash hash = calcHash(board, player_sign);
+    return getZobristValueImpl(hash);
 }
 
 void setZobristValue(const Board& board, int player_sign, ZobristValue& value)
 {
-    return setZobristValueImpl(
-        [board, player_sign]() {
-            return calcHash(board, player_sign);
-        },
-        value
-    );
+    ZobristHash hash = calcHash(board, player_sign);
+    setZobristValueImpl(hash, value);
 }
 
 
 ZobristValue& getZobristValueBB(Bitboard player1, Bitboard player2, int player_sign)
 {
-    return getZobristValueImpl(
-        [player1, player2, player_sign]() {
-            return calcHashBB(player1, player2, player_sign);
-        }
-    );
+    ZobristHash hash = calcHashBB(player1, player2, player_sign);
+    return getZobristValueImpl(hash);
 }
 
 void setZobristValueBB(Bitboard player1, Bitboard player2, int player_sign, ZobristValue& value)
 {
-    return setZobristValueImpl(
-        [player1, player2, player_sign]() {
-            return calcHashBB(player1, player2, player_sign);
-        },
-        value
-    );
+    ZobristHash hash = calcHashBB(player1, player2, player_sign);
+    setZobristValueImpl(hash, value);
 }
 
 namespace
 {
 
-ZobristValue& getZobristValueImpl(std::function<ZobristHash()> calc_hash)
+ZobristValue& getZobristValueImpl(ZobristHash hash)
 {
-    ZobristHash hash = calc_hash();
     ZobristValue& value = zobrist_table[hash % ZOBRIST_TABLE_SIZE];
     if(value.full_hash != hash) {
         // The short hash (i.e. mod ZOBRIST_TABLE_SIZE) collided, but the full hash did not.
@@ -111,9 +96,8 @@ ZobristValue& getZobristValueImpl(std::function<ZobristHash()> calc_hash)
     return value;
 }
 
-void setZobristValueImpl(std::function<ZobristHash()> calc_hash, ZobristValue& value)
+void setZobristValueImpl(ZobristHash hash, ZobristValue& value)
 {
-    ZobristHash hash = calc_hash();
     value.full_hash = hash;
     zobrist_table[hash % ZOBRIST_TABLE_SIZE] = value;
 }
