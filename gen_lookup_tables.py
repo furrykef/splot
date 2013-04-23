@@ -7,8 +7,8 @@ def main():
     JUMP_COORDS, BITBOARD_JUMPS = gen_jumps()
 
     print ("""
-// Generated with genbitboards.py
-// DO NOT MODIFY THIS FILE. Modify genbitboards.py and generate a new one.
+// Generated with gen_lookup_tables.py
+// DO NOT MODIFY THIS FILE. Modify gen_lookup_tables.py and generate a new one.
 #include "bitboards.hpp"
 
 const Bitboard BITBOARD_SURROUNDS[NUM_SQUARES] = {

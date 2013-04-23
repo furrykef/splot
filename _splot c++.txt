@@ -11,6 +11,7 @@ Immediate todos
 ** May not be a problem in practice. If you're about to lose, it doesn't really matter what move you play, and you'll find at least one move if you're doing iterative deepening, so the time limit might take care of it.
 
 * When did BB start performing worse? It's only a little over 1 million moves/sec now.
+** This had already happened by revision 7.
 
 * NULL MOVE HEURISTIC
 ** Make sure null move is never recorded as best move in zobrist!
