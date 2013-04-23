@@ -1,9 +1,16 @@
 Immediate todos
 ---------------
+* DID WE BREAK ALPHA-BETA AND/OR ZOBRIST??
+** At 8 ply, best-first on, null move off, iterative negamax used to search 6,429,292 nodes after a1-b1. Now it searches 9,606,792 (returning the same score). However, MTD(f) searched 6,535,305 with the old method (returning a score of -4) and 1,600,989 with the new (returning a score of -1). What's going on??
+*** We may have to do a 2-ply search and just brute-force it by hand to see what it SHOULD be doing versus what it IS doing.
+
+* MTD(f) does not match between BB and non-BB w/ zobrist on -- but iterative negamax does match, and MTD(f) matches with zobrist off.
+** It's because BB version looks root node up in transposition table and vanilla does not. I'm unclear on why this is causing BB to search *more* nodes.
+
 * What happens in MTD(f) when the CPU is about to lose the game? Is it gonna slide the null window towards -INFINITY one at a time, since it will fail low over and over?
 ** May not be a problem in practice. If you're about to lose, it doesn't really matter what move you play, and you'll find at least one move if you're doing iterative deepening, so the time limit might take care of it.
 
-* Do we really need to clear transposition table on every move? (Would make sense with more than one AI player, though, since they may have different personalities)
+* When did BB start performing worse? It's only a little over 1 million moves/sec now.
 
 * NULL MOVE HEURISTIC
 ** Make sure null move is never recorded as best move in zobrist!
@@ -12,13 +19,6 @@ Immediate todos
 ** Maybe allow recursive null moves (but don't search null move if parent was a null move)
 
 * Check divergence between non-bitboard AI and bitboard AI. The different move ordering may be responsible for the different moves, but the score for the different moves have to be the same, or else there's a bug.
-
-* Why does Negamax BB search 2.6 million nodes on first move but vanilla only 698k? Is this entirely due to alpha-beta?
-** 5-ply search with zobrist off yields different number of nodes searched.  8,835,829 vanilla, 8,832,543 BB
-*** After changing move order, I get 8,835,853 for both.
-** 4-ply yields 292,010 vanilla, 291,936 BB
-*** After changing move order, 292,019 for both.
-** NOT A BUG. It's because when it finds a move with a response that wins the game, there is a beta cutoff. This happens even with alpha-beta "disabled" because the disabling sets beta to INFINITY, and the INFINITY >= INFINITY. Thus, the number of nodes searched becomes sensitive to move order.
 
 * Scores don't match for opening moves between non-BB Negamax and non-BB MTD(f). The score at the first divergence is 4 for Negamax and 3 for MTD(f).
 ** The scores for the divergence do match with Zobrist off.
@@ -51,6 +51,7 @@ What happens if a score of -inf is detected? Will the computer start making rand
 * A solution here is to give the highest score to the move that defers loss the longest. Alternatively, it could return the result of the shallowest search that doesn't return a score of -inf (iterative shallowing?).
 
 Can get some randomness by sorting moves in a random order for root node before searching them (might still search clones first, though). Iterative deepening and the way MTD(f) works in general might interfere with this, though. You wouldn't want to randomize on any search other than the first (since you want to search best first), but the game's idea of the best move might change between searches. I also wouldn't be surprised if the randomness is not as uniform as it should be.
+* Implementation idea: before calling AI function, create an array that goes from 0-48 (one for each square) and shuffle it, and use it to search moves in that order. Could also use a second array from 0-15 for analyzing jump moves in a random order. To disable randomness, just turn off the shuffling.
 
 I think this game will show significant even/odd swings, so NegaScout may be better than MTD(f)
 

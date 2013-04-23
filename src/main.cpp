@@ -44,8 +44,11 @@ enum WhichAI {
 
 int main()
 {
+    cout << "Built on " << __DATE__ << endl << endl;
+
     // Seed RNG
-    g_rng.seed(unsigned long(chrono::system_clock::now().time_since_epoch().count()));
+    std::random_device rd;
+    g_rng.seed(rd());
 
     // Print big numbers with thousands separators
     locale loc("");
@@ -233,6 +236,15 @@ void decideCpusMove(const Board& board, Move& move, int which_ai)
     if(CLEAR_ZOBRIST_EVERY_TIME) {
         initZobristTable();
     }
+
+    std::vector<int> square_order(NUM_SQUARES);
+    for(int i = 0; i < NUM_SQUARES; ++i) {
+        square_order.at(i) = i;
+    }
+    if(ENABLE_RANDOMNESS) {
+        std::shuffle(square_order.begin(), square_order.end(), g_rng);
+    }
+
     int nodes_searched = 0;
     AiFuncPtr ai;
     switch(which_ai) {
@@ -246,17 +258,14 @@ void decideCpusMove(const Board& board, Move& move, int which_ai)
       default:                              assert(false);
     }
     steady_clock::time_point t1 = steady_clock::now();
-    int score = ai(board, move, nodes_searched);
+    int score = ai(board, square_order, move, nodes_searched);
     steady_clock::time_point t2 = steady_clock::now();
     duration<double> secs = duration_cast<duration<double>>(t2 - t1);
-    cout << "Searched " << nodes_searched << " nodes in " << secs.count() << " seconds (";
-    if(secs.count() != 0) {
-        cout << int(nodes_searched / secs.count());
-    } else {
-        cout << "unknown";
+    cout << "Searched " << nodes_searched << " nodes in " << secs.count() << " seconds";
+    if(secs.count() > 0) {
+        cout << " (" << int(nodes_searched / secs.count()) << " nodes/sec)";
     }
-    cout << " nodes/sec)" << endl;
-    cout << "CPU's estimated score for this move: " << score << endl;
+    cout << endl << "CPU's estimated score for this move: " << score << endl;
 }
 
 // @TODO@ -- error checking; exception safety?

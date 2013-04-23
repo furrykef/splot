@@ -13,7 +13,7 @@ extern mt19937 g_rng;
 
 namespace
 {
-int negamax_root(const Board& board, int depth, int alpha, int beta, Move& move_out, int& nodes_searched);
+int negamax_root(const Board& board, int depth, int alpha, int beta, const std::vector<int>& square_order, Move& move_out, int& nodes_searched);
 int negamax_impl(const Board& board, int depth, int alpha, int beta, int player_sign, int& nodes_searched);
 int evalPosition(const Board& board);
 void findMoves(const Board& board, Player who, vector<Move>& moves);
@@ -24,7 +24,7 @@ void appendLegalJumps(const Board& board, int src_x, int src_y, vector<Move>& mo
 void appendJumpIfLegal(const Board& board, int src_x, int src_y, int dst_x, int dst_y, vector<Move>& moves);
 }
 
-int random_move(const Board& board, Move& move_out, int& nodes_searched)
+int random_move(const Board& board, const std::vector<int>& square_order, Move& move_out, int& nodes_searched)
 {
     vector<Move> moves;
     // @TODO@ -- assumes AI is PLAYER2
@@ -35,33 +35,33 @@ int random_move(const Board& board, Move& move_out, int& nodes_searched)
 }
 
 // TRANSPOSITION TABLE MUST BE INITIALIZED BEFORE CALLING
-int negamax(const Board& board, Move& move_out, int& nodes_searched)
+int negamax(const Board& board, const std::vector<int>& square_order, Move& move_out, int& nodes_searched)
 {
-    return negamax_root(board, MAX_PLY, -INFINITY, INFINITY, move_out, nodes_searched);
+    return negamax_root(board, MAX_PLY, -INFINITY, INFINITY, square_order, move_out, nodes_searched);
 }
 
 // TRANSPOSITION TABLE MUST BE INITIALIZED BEFORE CALLING
-int negamax_iterative(const Board& board, Move& move_out, int& nodes_searched)
+int negamax_iterative(const Board& board, const std::vector<int>& square_order, Move& move_out, int& nodes_searched)
 {
     int score;
     for(int depth = 1; depth <= MAX_PLY; ++depth) {
-        score = negamax_root(board, depth, -INFINITY, INFINITY, move_out, nodes_searched);
+        score = negamax_root(board, depth, -INFINITY, INFINITY, square_order, move_out, nodes_searched);
     }
     return score;
 }
 
 // TRANSPOSITION TABLE MUST BE INITIALIZED BEFORE CALLING
 // @TODO@ -- code duplication with BB version
-int mtdf(const Board& board, Move& move_out, int& nodes_searched)
+int mtdf(const Board& board, const std::vector<int>& square_order, Move& move_out, int& nodes_searched)
 {
     int f = 0;
     for(int depth = 1; depth <= MAX_PLY; ++depth) {
-        f = mtdf_impl(board, depth, f, move_out, nodes_searched, negamax_root);
+        f = mtdf_impl(board, depth, f, square_order, move_out, nodes_searched, negamax_root);
     }
     return f;
 }
 
-int mtdf_impl(const Board& board, int depth, int f, Move& move_out, int& nodes_searched, NegamaxRootFuncPtr fp_negamax_root)
+int mtdf_impl(const Board& board, int depth, int f, const std::vector<int>& square_order, Move& move_out, int& nodes_searched, NegamaxRootFuncPtr fp_negamax_root)
 {
     int score = f;
     int lower_bound = -INFINITY;
@@ -70,7 +70,7 @@ int mtdf_impl(const Board& board, int depth, int f, Move& move_out, int& nodes_s
     do {
         Move move;
         beta = (score == lower_bound) ? score + 1 : score;
-        score = fp_negamax_root(board, depth, beta - 1, beta, move, nodes_searched);
+        score = fp_negamax_root(board, depth, beta - 1, beta, square_order, move, nodes_searched);
         if(score < beta) {
             // Failed low
             upper_bound = score;
@@ -88,7 +88,7 @@ namespace
 {
 
 // @TODO@ -- merge functionality with negamax_impl
-int negamax_root(const Board& board, int depth, int alpha, int beta, Move& move_out, int& nodes_searched)
+int negamax_root(const Board& board, int depth, int alpha, int beta, const std::vector<int>& square_order, Move& move_out, int& nodes_searched)
 {
     ++nodes_searched;
 

@@ -1,15 +1,17 @@
 #ifndef SPLOT_NEGAMAX_HPP
 #define SPLOT_NEGAMAX_HPP
 
+#include <vector>
 #include "Board.hpp"
 #include "moves.hpp"
 
+const bool ENABLE_RANDOMNESS = false;
 const bool ENABLE_ALPHA_BETA = true;
 const bool ENABLE_ZOBRIST = true;
-const int MAX_PLY = 9;                  // must be > 0
-const bool ENABLE_BEST_FIRST = true;
+const int MAX_PLY = 8;                  // must be > 0
+const bool ENABLE_BEST_FIRST = false;
 const bool ENABLE_NULL_MOVE = false;
-const bool CLEAR_ZOBRIST_EVERY_TIME = false;
+const bool CLEAR_ZOBRIST_EVERY_TIME = true;
 
 // Should be > 0. This number includes the ply of the null move itself,
 // so if we used 0, the search depth would not be reduced at all (i.e.,
@@ -25,16 +27,16 @@ const int INFINITY = 10000;
 const int WIN = INFINITY;
 const int LOSS = -WIN;
 
-typedef int (*AiFuncPtr)(const Board& board, Move& move, int& nodes_searched);
-typedef int (*NegamaxRootFuncPtr)(const Board& board, int depth, int alpha, int beta, Move& move_out, int& nodes_searched);
+typedef int (*AiFuncPtr)(const Board& board, const std::vector<int>& square_order, Move& move_out, int& nodes_searched);
+typedef int (*NegamaxRootFuncPtr)(const Board& board, int depth, int alpha, int beta, const std::vector<int>& square_order, Move& move_out, int& nodes_searched);
 
-int random_move(const Board& board, Move& move, int& nodes_searched);
-int negamax(const Board& board, Move& move, int& nodes_searched);
-int negamax_iterative(const Board& board, Move& move, int& nodes_searched);
-int mtdf(const Board& board, Move& move, int& nodes_searched);
-int mtdf_impl(const Board &board, int depth, int f, Move& move_out, int& nodes_searched, NegamaxRootFuncPtr fp_negamax_root);
-int negamax_bb(const Board& board, Move& move, int& nodes_searched);
-int negamax_iterative_bb(const Board& board, Move& move, int& nodes_searched);
-int mtdf_bb(const Board& board, Move& move, int& nodes_searched);
+int random_move(const Board& board, const std::vector<int>& square_order, Move& move, int& nodes_searched);
+int negamax(const Board& board, const std::vector<int>& square_order, Move& move, int& nodes_searched);
+int negamax_iterative(const Board& board, const std::vector<int>& square_order, Move& move, int& nodes_searched);
+int mtdf(const Board& board, const std::vector<int>& square_order, Move& move, int& nodes_searched);
+int mtdf_impl(const Board &board, int depth, int f, const std::vector<int>& square_order, Move& move, int& nodes_searched, NegamaxRootFuncPtr fp_negamax_root);
+int negamax_bb(const Board& board, const std::vector<int>& square_order, Move& move, int& nodes_searched);
+int negamax_iterative_bb(const Board& board, const std::vector<int>& square_order, Move& move, int& nodes_searched);
+int mtdf_bb(const Board& board, const std::vector<int>& square_order, Move& move, int& nodes_searched);
 
 #endif
