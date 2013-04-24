@@ -43,4 +43,7 @@ ZobristValue& getZobristValue(const Board& board, int player_sign);
 ZobristValue& getZobristValueBB(Bitboard player1, Bitboard player2, int player_sign);
 //void setZobristValueBB(Bitboard player1, Bitboard player2, int player_sign, ZobristValue& value);
 
+extern const ZobristHash ZOBRIST_CODES[2][NUM_SQUARES];
+extern const ZobristHash ZOBRIST_CODES_BB[2][4][0x10000];
+
 #endif

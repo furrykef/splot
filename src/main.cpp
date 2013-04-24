@@ -165,7 +165,7 @@ bool askForWhichAI(int& which_ai)
     while(true) {
         cout << "CHOOSE YOUR OPPONENT" << endl;
         cout << "====================" << endl;
-        cout << "1) Complete moron" << endl;
+        cout << "1) Tony" << endl;
         cout << "2) Negamax" << endl;
         cout << "3) Negamax with iterative deepening" << endl;
         cout << "4) MTD(f)" << endl;

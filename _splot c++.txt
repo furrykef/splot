@@ -1,3 +1,6 @@
+DEEP SPOT
+=========
+
 Immediate todos
 ---------------
 * DID WE BREAK ALPHA-BETA AND/OR ZOBRIST??
@@ -16,17 +19,7 @@ Immediate todos
 ** Do we turn off writing to transposition table inside null branches or not?
 ** Maybe allow recursive null moves (but don't search null move if parent was a null move)
 
-* Check divergence between non-bitboard AI and bitboard AI. The different move ordering may be responsible for the different moves, but the score for the different moves have to be the same, or else there's a bug.
-
-* Scores don't match for opening moves between non-BB Negamax and non-BB MTD(f). The score at the first divergence is 4 for Negamax and 3 for MTD(f).
-** The scores for the divergence do match with Zobrist off.
-
-* Test how long it takes for a program to create a vector and add (say) 25 elements to it 1 million times. Then you have an idea of how much your performance gain is from bitboards and how much is from avoiding 'new'.
-
 * Make non-BB and BB versions use exactly the same search algorithm. Then you can see what value the bitboards alone bring, and you can compare the accuracy much more, well, accurately. Current known differences:
-** Different move order
-*** Vanilla searches clones, then jumps; BB searches square by square
-*** BB searches jumps clockwise from top-left; vanilla uses a more ad-hoc order
 ** Performance difference: vanilla creates a vector on every move; BB does not.
 
 
@@ -37,19 +30,19 @@ Capture square: A square the opponent can land on to capture a piece.
 
 AI
 --
+Consider using 256-entry zobrist LUTs instead of 64k-entry LUTs for mobile devices (may work better with cache)
+
 Try Enhanced Transposition Cutoffs (ETC) -- basically, check if any children nodes are in the transposition table and cut off if there is a beta cutoff. This is expensive, so is only worth doing higher up in the tree.
 
 Hypothesis: even-numbered plies work best, because it doesn't matter if you grab a lot of pieces only to lose a large number of them one ply later.
 
-Bitboards are MUCH faster per node than vanilla in debug build. This may be a good incentive for keeping them.
-
 Iterative deepening should cut off search once a score of +inf has been found. No need to search to 4 ply if the game will end in 3 moves.
+* Do we do the same for a score of -inf?
 
 What happens if a score of -inf is detected? Will the computer start making random moves, since no move seems better than any other? And (once we allow them) what about draws?
 * A solution here is to give the highest score to the move that defers loss the longest. Alternatively, it could return the result of the shallowest search that doesn't return a score of -inf (iterative shallowing?).
 
-Can get some randomness by sorting moves in a random order for root node before searching them (might still search clones first, though). Iterative deepening and the way MTD(f) works in general might interfere with this, though. You wouldn't want to randomize on any search other than the first (since you want to search best first), but the game's idea of the best move might change between searches. I also wouldn't be surprised if the randomness is not as uniform as it should be.
-* Implementation idea: before calling AI function, create an array that goes from 0-48 (one for each square) and shuffle it, and use it to search moves in that order. Could also use a second array from 0-15 for analyzing jump moves in a random order. To disable randomness, just turn off the shuffling.
+The order in which the CPU looks for jumps is still not randomized.
 
 I think this game will show significant even/odd swings, so NegaScout may be better than MTD(f)
 
@@ -57,23 +50,15 @@ MTD(f) is making different moves than negamax, even with zobrist hashing off. Is
 
 Zobrist hashing can be improved by using a "hash lock" -- instead of recording the full_hash, compute and record a DIFFERENT hash. Implement by modifying calcHash to accept different tables. There is the unfortunate side effect, though, that this doubles the time spent hashing.
 
-Empty squares do not need to be added to zobrist hash (may not hurt, though)
-
-For performance, could turn off randomness when number of pieces on board is >=N (thus allowing more cutoffs, since we can test score >= beta rather than score > beta)
-
 Always examine one ply deeper when there is only one legal move (repeat as necessary).
 
 Should give higher scores to winning the game in fewer moves, so the computer always plays the quickest win, not the first it finds. (If the win is only a few ply away, though, iterative deepening will catch it at the shallowest possible depth.)
 
 Consider killer move heuristic
 
-Consider quiescence search: after a certain number of ply, examine only moves that capture. But unlike chess, I think a higher proportion of possible moves will be capture moves, and also unlike chess, the number of pieces does not go down with each capture.
-
-Repetition could complicate searches (i.e. if CPU returns to a previous position during its search, but does not realize it)
+There might be situations analogous to superko in Go that would cause a game between two AIs to continue endlessly.
 
 I'm thinking a piece is worth 100 points, a capture square is worth -N points (to encourage the algorithm to err on the side of reducing its capture squares), where N is the number of pieces that will be captured if the opponent moves there. (Calculate by iterating through the board, and if piece is of our color, adding up all the empty squares that neighbor it)
-
-I'm thinking of using iterative deepening for 2 or 3 ply before switching to Negascout or MTD(f). This increases the probability of having found a decent move if the search is forced to terminate early.
 
 
 Time control
