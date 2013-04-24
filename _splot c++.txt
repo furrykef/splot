@@ -3,6 +3,9 @@ DEEP SPOT
 
 Immediate todos
 ---------------
+* CPU MADE ILLEGAL MOVE. Had only one move available at end of game and passed. "Searched 77 nodes in 0 seconds"
+** Must not have found a better move than alpha, which was -INFINITY, and so returned no move.
+
 * DID WE BREAK ALPHA-BETA AND/OR ZOBRIST??
 ** At 8 ply, best-first on, null move off, iterative negamax used to search 6,429,292 nodes after a1-b1. Now it searches 9,606,792 (returning the same score). However, MTD(f) searched 6,535,305 with the old method (returning a score of -4) and 1,600,989 with the new (returning a score of -1). What's going on??
 *** We may have to do a 2-ply search and just brute-force it by hand to see what it SHOULD be doing versus what it IS doing.

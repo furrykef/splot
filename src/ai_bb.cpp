@@ -81,6 +81,10 @@ int negamax_bb_impl(Bitboard bb_player1, Bitboard bb_player2, int depth, int alp
 {
     ++nodes_searched;
 
+    if(depth == 0) {
+        return player_sign * evalPositionBB(bb_player1, bb_player2);
+    }
+
     if(!ENABLE_ALPHA_BETA) {
         alpha = -INFINITY;
         beta = INFINITY;
@@ -108,14 +112,6 @@ int negamax_bb_impl(Bitboard bb_player1, Bitboard bb_player2, int depth, int alp
         move_out = zv.best_move;
     } else {
         move_out.move_type = BBMOVE_NONE;
-    }
-
-    if(depth == 0) {
-        int score = player_sign * evalPositionBB(bb_player1, bb_player2);
-        zv.lower_bound = score;
-        zv.upper_bound = score;
-        zv.best_move.move_type = BBMOVE_NONE;
-        return score;
     }
 
     // @TODO@ -- all this assumes AI is player 2

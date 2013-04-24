@@ -5,7 +5,7 @@
 #include "Board.hpp"
 #include "moves.hpp"
 
-const bool ENABLE_RANDOMNESS = false;
+const bool ENABLE_RANDOMNESS = true;
 const bool ENABLE_ALPHA_BETA = true;
 const bool ENABLE_ZOBRIST = true;
 const int MAX_PLY = 8;                  // must be > 0

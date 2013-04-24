@@ -123,6 +123,10 @@ int negamax_impl(const Board& board, int depth, int alpha, int beta, int player_
 {
     ++nodes_searched;
 
+    if(depth == 0) {
+        return player_sign * evalPosition(board);
+    }
+
     if(!ENABLE_ALPHA_BETA) {
         alpha = -INFINITY;
         beta = INFINITY;
@@ -140,14 +144,6 @@ int negamax_impl(const Board& board, int depth, int alpha, int beta, int player_
             beta = std::min(beta, int(zv.upper_bound));
         }
         zv.depth = depth;
-    }
-
-    if(depth == 0) {
-        int score = player_sign * evalPosition(board);
-        zv.lower_bound = score;
-        zv.upper_bound = score;
-        zv.best_move.move_type = BBMOVE_NONE;
-        return score;
     }
 
     vector<Move> moves;
