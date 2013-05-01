@@ -2,7 +2,7 @@ syntax: glob
 
 Debug/*
 Release/*
-Semi-debug/*
+x64/*
 *.opensdf
 *.sdf
 *.sln

@@ -211,10 +211,12 @@ int negamax_bb_impl(Bitboard bb_player1, Bitboard bb_player2, int depth, int alp
         // No moves were found
         // @TODO@ -- This is not correct behavior!
         // Should check if game over and if so return position evaluation.
-        // Otherwise, should take another turn. Sometimes the CPU gets to fill the board here;
-        // that should be detected too.
-        // @TODO@ -- implement zobrist here!
-        return player_sign * evalPositionBB(bb_player1, bb_player2);
+        // Otherwise, should take another turn. Sometimes a player gets to fill
+        // the board here; that should be detected too.
+        int score = player_sign * evalPositionBB(bb_player1, bb_player2);
+        zv.lower_bound = score;
+        zv.upper_bound = score;
+        return score;
     }
 
     zv.upper_bound = alpha;
@@ -290,7 +292,7 @@ void makeMoveBB(BitboardMove bbmove, Bitboard& me, Bitboard& him)
 }
 
 // @TODO@ -- Assumes AI is PLAYER2
-// @TODO@ -- Does not account for draws (default rules don't allow them anyway)
+// @TODO@ -- Does not account for draws (default 2-player rules don't allow them anyway)
 int evalPositionBB(Bitboard player1, Bitboard player2)
 {
     int num_pieces_p1 = countSetBits(player1);

@@ -22,9 +22,9 @@ const int NULL_MOVE_REDUCTION = 2;
 // Arbitrary value. Should fit into a short (for zobrist hashing).
 // It's tempting to use SHRT_MIN and SHRT_MAX for -inf and +inf, but this is
 // wrong, because -SHRT_MIN is still SHRT_MIN! (Thanks, two's complement.)
-// Note that a null window of -INFINITY - 1, -INFINITY is permissible.
 const int INFINITY = 10000;
-const int WIN = INFINITY;
+
+const int WIN = INFINITY - 1;   // Less than infinity so we won't fail low when MTD(f) finds score is LOSS
 const int LOSS = -WIN;
 
 typedef int (*AiFuncPtr)(const Board& board, const std::vector<int>& square_order, Move& move_out, int& nodes_searched);

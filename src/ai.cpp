@@ -151,12 +151,15 @@ int negamax_impl(const Board& board, int depth, int alpha, int beta, int player_
     findMoves(board, (player_sign == 1) ? PLAYER2 : PLAYER1, moves);
 
     if(moves.size() == 0) {
+        // No moves were found
         // @TODO@ -- This is not correct behavior!
         // Should check if game over and if so return position evaluation.
-        // Otherwise, should take another turn. Sometimes the CPU gets to fill the board here;
-        // that should be detected too.
-        // @TODO@ -- implement zobrist here!
-        return player_sign * evalPosition(board);
+        // Otherwise, should take another turn. Sometimes a player gets to fill
+        // the board here; that should be detected too.
+        int score = player_sign * evalPosition(board);
+        zv.lower_bound = score;
+        zv.upper_bound = score;
+        return score;
     }
 
     for(const Move &move : moves) {

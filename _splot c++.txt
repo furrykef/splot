@@ -6,6 +6,8 @@ Immediate todos
 * CPU MADE ILLEGAL MOVE. Had only one move available at end of game and passed. "Searched 77 nodes in 0 seconds"
 ** Must not have found a better move than alpha, which was -INFINITY, and so returned no move.
 
+* Perhaps WIN and LOSS should be INFINITY-1 and -INFINITY+1. This automatically solves the problem of the root node failing low when losing is the only option. However, it also means you won't get a beta cutoff when a win is detected and beta is INFINITY, so you may want to change the beta cutoff check to check for WIN too.
+
 * DID WE BREAK ALPHA-BETA AND/OR ZOBRIST??
 ** At 8 ply, best-first on, null move off, iterative negamax used to search 6,429,292 nodes after a1-b1. Now it searches 9,606,792 (returning the same score). However, MTD(f) searched 6,535,305 with the old method (returning a score of -4) and 1,600,989 with the new (returning a score of -1). What's going on??
 *** We may have to do a 2-ply search and just brute-force it by hand to see what it SHOULD be doing versus what it IS doing.
@@ -13,8 +15,9 @@ Immediate todos
 * MTD(f) does not match between BB and non-BB w/ zobrist on -- but iterative negamax does match, and MTD(f) matches with zobrist off.
 ** It's because BB version looks root node up in transposition table and vanilla does not. I'm unclear on why this is causing BB to search *more* nodes.
 
-* What happens in MTD(f) when the CPU is about to lose the game? Is it gonna slide the null window towards -INFINITY one at a time, since it will fail low over and over?
+* What happens in MTD(f) when the CPU is about to lose the game? Is it gonna slide the null window towards LOSS one at a time, since it will fail low over and over?
 ** May not be a problem in practice. If you're about to lose, it doesn't really matter what move you play, and you'll find at least one move if you're doing iterative deepening, so the time limit might take care of it.
+*** But will the same thing happen if the CPU is about to win, sliding towards WIN? Obviously you DO want to find the right move in that case!
 
 * NULL MOVE HEURISTIC
 ** Make sure null move is never recorded as best move in zobrist!
@@ -33,6 +36,12 @@ Capture square: A square the opponent can land on to capture a piece.
 
 AI
 --
+Consider not searching jumps that do not result in captures. (This pruning is only permissible when the piece does not neighbor any impassible squares.) This should reduce the branching factor. Be sure to test it against an AI that is not so pruned.
+* Or even better! Do two passes for jumps, one for jumps that capture and one for those that do not. That way, jumps that don't capture get processed dead last, and alpha-beta will prune most of them away. It might be an option to allow the AI to skip this third pass entirely (unless no other moves have been found).
+** We could also penalize non-capturing jumps by analyzing them to a shallower depth (decrementing depth by more than one).
+
+Do we ignore the transposition table at depth 0? Doing so does result in a 2x speed boost as of this writing, but then it can't benefit from any scores recorded for the same position at a higher depth -- but is that really a benefit anyway? (I know at least some chess programs do consult the transposition table before evaluating the position.)
+
 Consider using 256-entry zobrist LUTs instead of 64k-entry LUTs for mobile devices (may work better with cache)
 
 Try Enhanced Transposition Cutoffs (ETC) -- basically, check if any children nodes are in the transposition table and cut off if there is a beta cutoff. This is expensive, so is only worth doing higher up in the tree.
@@ -61,7 +70,17 @@ Consider killer move heuristic
 
 There might be situations analogous to superko in Go that would cause a game between two AIs to continue endlessly.
 
-I'm thinking a piece is worth 100 points, a capture square is worth -N points (to encourage the algorithm to err on the side of reducing its capture squares), where N is the number of pieces that will be captured if the opponent moves there. (Calculate by iterating through the board, and if piece is of our color, adding up all the empty squares that neighbor it)
+
+Position evaluation
+-------------------
+Naive evaluation method: simply subtract the number of enemy pieces from your own pieces.
+* Extremely fast to calculate thanks to fast ways to count bits. As of this writing, it's a good deal faster than looking up the board in the transposition table.
+
+Capture squares method: I'm thinking a piece is worth 100 points, a capture square is worth -N points (to encourage the algorithm to err on the side of reducing its capture squares), where N is the number of pieces that will be captured if the opponent moves there. (Calculate by iterating through the board, and if piece is of our color, adding up all the empty squares that neighbor it)
+
+Mobility method: pieces that can't move are scored slightly less than pieces that can. This should encourage the CPU to trap its opponent's pieces. Perhaps pieces are scored 1000 each (this would require using ints instead of shorts for the score), then 1 point is added for each square it can move to.
+
+The danger of fancier evaluation methods is they will slow down the algorithm severely, reducing the number of ply that can be searched and possibly negating the advantage.
 
 
 Time control
@@ -78,38 +97,33 @@ Generate (say) 1 million random positions. Verify that Negamax w/o alpha-beta, N
 Also try random positions with different version of the algorithm to see how they perform.
 
 
-Evaluating a position with bitboards
-------------------------------------
-Counting number of 1's one bit at a time:
+AI personalities
+----------------
+Possible differences among them:
+* Evaluation function
+* Order of move generation (some may have a predilection for diagonal moves, for instance)
+* Number of plies and/or time to think
+* Minimax-based vs. rules-based (perhaps instead of rules-based we'd use a modified 2-ply negamax that has some heuristics to guard against un-human-like moves)
 
-    int count = 0;
-    for(uint64 bits = bitboard; bits != 0; bits >>= 1) {
-        count += bits & 1;
-    }
+Possible names:
+* Tony (weakest player)
+* Derpy
+* Doofus
+* Bessie (avatar: a cow)
+* Dr. Watt
+* Orion
+* Sammie
+* Phil Heckmuth (highly speculative playstyle)
+* Dr. Robotvinnik (avatar: caricature of Mikhail Botvinnik w/ orange moustache)
+* Hannibal (hyperaggressive)
+* Cruise Elroy (avatar: reminiscent of red Pac-Man ghost)
+* Emerson
+* Dazzler
+* Spotmaster 9000
+* Deep Spot (avatar: HHGttG's Deep Thought w/ Cool Spot's sunglasses?)
+* God (if we devise a perfect player -- unlikely!)
 
-
-Counting number of 1's with a lookup table (COUNT_BITS is 16-bit):
-
-    int count = COUNT_BITS[bitboard & 0xffff];
-    count += COUNT_BITS[(bitboard >> 16) & 0xffff];
-    count += COUNT_BITS[(bitboard >> 32) & 0xffff];
-    count += COUNT_BITS[(bitboard >> 48) & 0xffff];
-
-Or equivalently:
-
-    int count = 0;
-    for(uint64 bits = bitboard; bits != 0; bits >>= 16) {
-        count += COUNT_BITS[bits & 0xffff];
-    }
-
-A very similar trick can also be used with bitboards to make zobrist hashes!
-
-    uint64 hash = ZOBRIST_BLUE1[bb_blue & 0xffff];
-    hash ^= ZOBRIST_BLUE2[(bb_blue >> 16) & 0xffff];
-    hash ^= ZOBRIST_BLUE3[(bb_blue >> 32) & 0xffff];
-    hash ^= ZOBRIST_BLUE4[(bb_blue >> 48) & 0xffff];
-
-Then repeat for red, and then hash in whose turn it is to move.
+I'm imagining a tournament ladder where you have to beat many of these
 
 
 Draw bitboard routine
