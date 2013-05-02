@@ -3,10 +3,14 @@ DEEP SPOT
 
 Immediate todos
 ---------------
+* Improving move order by searching non-capturing jumps last has slowed down the AI's nodes/sec considerably. Need to check whether the number of branches pruned outweigh this.
+
+* BB and vanilla move order no longer match again, since BB now searches non-capturing jumps last.
+
 * CPU MADE ILLEGAL MOVE. Had only one move available at end of game and passed. "Searched 77 nodes in 0 seconds"
 ** Must not have found a better move than alpha, which was -INFINITY, and so returned no move.
 
-* Perhaps WIN and LOSS should be INFINITY-1 and -INFINITY+1. This automatically solves the problem of the root node failing low when losing is the only option. However, it also means you won't get a beta cutoff when a win is detected and beta is INFINITY, so you may want to change the beta cutoff check to check for WIN too.
+* Now that WIN and LOSS are no longer infinity, you won't get a beta cutoff when a win is detected and beta is INFINITY, so you may want to change the beta cutoff check to check for WIN too.
 
 * DID WE BREAK ALPHA-BETA AND/OR ZOBRIST??
 ** At 8 ply, best-first on, null move off, iterative negamax used to search 6,429,292 nodes after a1-b1. Now it searches 9,606,792 (returning the same score). However, MTD(f) searched 6,535,305 with the old method (returning a score of -4) and 1,600,989 with the new (returning a score of -1). What's going on??
@@ -36,9 +40,8 @@ Capture square: A square the opponent can land on to capture a piece.
 
 AI
 --
-Consider not searching jumps that do not result in captures. (This pruning is only permissible when the piece does not neighbor any impassible squares.) This should reduce the branching factor. Be sure to test it against an AI that is not so pruned.
-* Or even better! Do two passes for jumps, one for jumps that capture and one for those that do not. That way, jumps that don't capture get processed dead last, and alpha-beta will prune most of them away. It might be an option to allow the AI to skip this third pass entirely (unless no other moves have been found).
-** We could also penalize non-capturing jumps by analyzing them to a shallower depth (decrementing depth by more than one).
+In addition to searching them last, we could penalize non-capturing jumps by analyzing them to a shallower depth (decrementing depth by more than one). In fact, we could penalize *all* non-capturing moves.
+* Tread carefully here. Analyzing moves to a shallower depth mean you have less of an idea of the consequences. Better check if this weakens the AI significantly.
 
 Do we ignore the transposition table at depth 0? Doing so does result in a 2x speed boost as of this writing, but then it can't benefit from any scores recorded for the same position at a higher depth -- but is that really a benefit anyway? (I know at least some chess programs do consult the transposition table before evaluating the position.)
 

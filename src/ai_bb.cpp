@@ -155,8 +155,9 @@ int negamax_bb_impl(Bitboard bb_player1, Bitboard bb_player2, int depth, int alp
     }
 
     // Try to generate moves
-    // If we analyzed a "best move", it will show up again here. We're hoping
-    // the transposition table takes care of it.
+    // If we analyzed a "best move", it will show up again in one of these loops.
+    // We're hoping the transposition table takes care of it.
+    // We'll look at clone moves first because they tend to be the best moves.
     for(int square_num : square_order) {
         BitboardMove bbmove(BBMOVE_NONE, 0, 0);
         Bitboard bit = 1LL << square_num;
@@ -179,8 +180,7 @@ int negamax_bb_impl(Bitboard bb_player1, Bitboard bb_player2, int depth, int alp
         }
     }
 
-    // Now look for jumps. This is in a separate loop because I suspect
-    // clone moves tend to be better than jump moves.
+    // Now look for jumps that capture
     for(int square_num : square_order) {
         BitboardMove bbmove(BBMOVE_NONE, 0, 0);
         Bitboard bit = 1LL << square_num;
@@ -188,7 +188,36 @@ int negamax_bb_impl(Bitboard bb_player1, Bitboard bb_player2, int depth, int alp
             // This is one of my squares; try to generate jumps
             const BitboardJump* jumps = BITBOARD_JUMPS[square_num];
             for(int i = 0; i < NUM_JUMPS; ++i) {
-                if(jumps[i].dest_square & bb_empty) {
+                if(jumps[i].dest_square & bb_empty && jumps[i].capture_radius & bb_him) {
+                    found_any_moves = true;
+                    bbmove.move_type = BBMOVE_JUMP;
+                    bbmove.square = square_num;
+                    bbmove.jump_type = i;
+                    int score;
+                    if(searchMove(bbmove, score, zv, bb_player1,
+                                  bb_player2, bb_me, bb_him, depth, best_score,
+                                  alpha, beta, player_sign, in_null_branch,
+                                  square_order, move_out, nodes_searched))
+                    {
+                        // Beta cutoff
+                        return score;
+                    }
+                }
+            }
+        }
+    }
+
+    // Now look for the least promising moves: jumps that don't capture.
+    // @TODO@ -- code duplication! This is exactly the same loop as above,
+    // except one of the conditions is negated.
+    for(int square_num : square_order) {
+        BitboardMove bbmove(BBMOVE_NONE, 0, 0);
+        Bitboard bit = 1LL << square_num;
+        if(bit & bb_me) {
+            // This is one of my squares; try to generate jumps
+            const BitboardJump* jumps = BITBOARD_JUMPS[square_num];
+            for(int i = 0; i < NUM_JUMPS; ++i) {
+                if(jumps[i].dest_square & bb_empty && !(jumps[i].capture_radius & bb_him)) {
                     found_any_moves = true;
                     bbmove.move_type = BBMOVE_JUMP;
                     bbmove.square = square_num;

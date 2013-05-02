@@ -8,10 +8,10 @@
 const bool ENABLE_RANDOMNESS = true;
 const bool ENABLE_ALPHA_BETA = true;
 const bool ENABLE_ZOBRIST = true;
-const int MAX_PLY = 8;                  // must be > 0
+const int MAX_PLY = 9;                  // must be > 0
 const bool ENABLE_BEST_FIRST = true;
 const bool ENABLE_NULL_MOVE = false;
-const bool CLEAR_ZOBRIST_EVERY_TIME = true;
+const bool CLEAR_ZOBRIST_EVERY_TIME = false;
 
 // Should be > 0. This number includes the ply of the null move itself,
 // so if we used 0, the search depth would not be reduced at all (i.e.,
