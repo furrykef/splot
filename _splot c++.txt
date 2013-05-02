@@ -8,7 +8,7 @@ Immediate todos
 * BB and vanilla move order no longer match again, since BB now searches non-capturing jumps last.
 
 * CPU MADE ILLEGAL MOVE. Had only one move available at end of game and passed. "Searched 77 nodes in 0 seconds"
-** Must not have found a better move than alpha, which was -INFINITY, and so returned no move.
+** Must not have found a better move than alpha, which was -INFINITY, and so returned no move. (Now LOSS is not the same as -INFINITY, so hopefully this is fixed.)
 
 * Now that WIN and LOSS are no longer infinity, you won't get a beta cutoff when a win is detected and beta is INFINITY, so you may want to change the beta cutoff check to check for WIN too.
 
@@ -43,6 +43,8 @@ AI
 In addition to searching them last, we could penalize non-capturing jumps by analyzing them to a shallower depth (decrementing depth by more than one). In fact, we could penalize *all* non-capturing moves.
 * Tread carefully here. Analyzing moves to a shallower depth mean you have less of an idea of the consequences. Better check if this weakens the AI significantly.
 
+Internal iterative deepening could be used to sort moves, replacing the current three-tier system of guessing how good a move is.
+
 Do we ignore the transposition table at depth 0? Doing so does result in a 2x speed boost as of this writing, but then it can't benefit from any scores recorded for the same position at a higher depth -- but is that really a benefit anyway? (I know at least some chess programs do consult the transposition table before evaluating the position.)
 
 Consider using 256-entry zobrist LUTs instead of 64k-entry LUTs for mobile devices (may work better with cache)
@@ -51,13 +53,8 @@ Try Enhanced Transposition Cutoffs (ETC) -- basically, check if any children nod
 
 Hypothesis: even-numbered plies work best, because it doesn't matter if you grab a lot of pieces only to lose a large number of them one ply later.
 
-Iterative deepening should cut off search once a score of +inf has been found. No need to search to 4 ply if the game will end in 3 moves.
-* Do we do the same for a score of -inf?
-
-What happens if a score of -inf is detected? Will the computer start making random moves, since no move seems better than any other? And (once we allow them) what about draws?
-* A solution here is to give the highest score to the move that defers loss the longest. Alternatively, it could return the result of the shallowest search that doesn't return a score of -inf (iterative shallowing?).
-
-The order in which the CPU looks for jumps is still not randomized.
+What happens if a score of LOSS is detected? Will the computer start making random moves, since no move seems better than any other? And (once we allow them) what about draws?
+* A solution here is to give the highest score to the move that defers loss the longest. Alternatively, it could return the result of the shallowest search that doesn't return a score of LOSS (iterative shallowing?).
 
 I think this game will show significant even/odd swings, so NegaScout may be better than MTD(f)
 

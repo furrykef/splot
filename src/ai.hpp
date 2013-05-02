@@ -27,16 +27,13 @@ const int INFINITY = 10000;
 const int WIN = INFINITY - 1;   // Less than infinity so we won't fail low when MTD(f) finds score is LOSS
 const int LOSS = -WIN;
 
-typedef int (*AiFuncPtr)(const Board& board, const std::vector<int>& square_order, Move& move_out, int& nodes_searched);
-typedef int (*NegamaxRootFuncPtr)(const Board& board, int depth, int alpha, int beta, const std::vector<int>& square_order, Move& move_out, int& nodes_searched);
+typedef int (*AiFuncPtr)(const Board& board, const std::vector<int>& square_order, const std::vector<int>& jump_order, Move& move_out, int& nodes_searched);
+typedef int (*NegamaxRootFuncPtr)(const Board& board, int depth, int alpha, int beta, const std::vector<int>& square_order, const std::vector<int>& jump_order, bool& horizon_found, Move& move_out, int& nodes_searched);
 
-int random_move(const Board& board, const std::vector<int>& square_order, Move& move, int& nodes_searched);
-int negamax(const Board& board, const std::vector<int>& square_order, Move& move, int& nodes_searched);
-int negamax_iterative(const Board& board, const std::vector<int>& square_order, Move& move, int& nodes_searched);
-int mtdf(const Board& board, const std::vector<int>& square_order, Move& move, int& nodes_searched);
-int mtdf_impl(const Board &board, int depth, int f, const std::vector<int>& square_order, Move& move, int& nodes_searched, NegamaxRootFuncPtr fp_negamax_root);
-int negamax_bb(const Board& board, const std::vector<int>& square_order, Move& move, int& nodes_searched);
-int negamax_iterative_bb(const Board& board, const std::vector<int>& square_order, Move& move, int& nodes_searched);
-int mtdf_bb(const Board& board, const std::vector<int>& square_order, Move& move, int& nodes_searched);
+int random_move(const Board& board, const std::vector<int>& square_order, const std::vector<int>& jump_order, Move& move, int& nodes_searched);
+int mtdf_impl(const Board &board, int depth, int f, const std::vector<int>& square_order, const std::vector<int>& jump_order, bool& horizon_found, Move& move, int& nodes_searched, NegamaxRootFuncPtr fp_negamax_root);
+int negamax_bb(const Board& board, const std::vector<int>& square_order, const std::vector<int>& jump_order, Move& move, int& nodes_searched);
+int negamax_iterative_bb(const Board& board, const std::vector<int>& square_order, const std::vector<int>& jump_order, Move& move, int& nodes_searched);
+int mtdf_bb(const Board& board, const std::vector<int>& square_order, const std::vector<int>& jump_order, Move& move, int& nodes_searched);
 
 #endif

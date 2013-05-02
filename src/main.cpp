@@ -33,12 +33,9 @@ void loadGame(Board& board, const std::string& filename);
 
 enum WhichAI {
     AI_RANDOM_MOVE,
-    AI_NEGAMAX_WITHOUT_BB,
-    AI_NEGAMAX_ITERATIVE_WITHOUT_BB,
-    AI_MTDF_WITHOUT_BB,
-    AI_NEGAMAX_WITH_BB,
-    AI_NEGAMAX_ITERATIVE_WITH_BB,
-    AI_MTDF_WITH_BB,
+    AI_NEGAMAX,
+    AI_NEGAMAX_ITERATIVE,
+    AI_MTDF,
     NUM_AIS
 };
 
@@ -165,13 +162,10 @@ bool askForWhichAI(int& which_ai)
     while(true) {
         cout << "CHOOSE YOUR OPPONENT" << endl;
         cout << "====================" << endl;
-        cout << "1) Tony" << endl;
+        cout << "1) Complete moron" << endl;
         cout << "2) Negamax" << endl;
         cout << "3) Negamax with iterative deepening" << endl;
         cout << "4) MTD(f)" << endl;
-        cout << "5) Negamax with bitboards" << endl;
-        cout << "6) Negamax with iterative deepening and bitboards" << endl;
-        cout << "7) MTD(f) with bitboards" << endl;
         cout << endl;
         cout << "Enter a number> ";
         cin >> which_ai_str;
@@ -238,8 +232,12 @@ void decideCpusMove(const Board& board, Move& move, int which_ai)
     }
 
     std::vector<int> square_order(NUM_SQUARES);
+    std::vector<int> jump_order(NUM_JUMPS);
     for(int i = 0; i < NUM_SQUARES; ++i) {
         square_order.at(i) = i;
+    }
+    for(int i = 0; i < NUM_JUMPS; ++i) {
+        jump_order.at(i) = i;
     }
     if(ENABLE_RANDOMNESS) {
         std::shuffle(square_order.begin(), square_order.end(), g_rng);
@@ -249,16 +247,13 @@ void decideCpusMove(const Board& board, Move& move, int which_ai)
     AiFuncPtr ai;
     switch(which_ai) {
       case AI_RANDOM_MOVE:                  ai = random_move; break;
-      case AI_NEGAMAX_WITHOUT_BB:           ai = negamax; break;
-      case AI_NEGAMAX_ITERATIVE_WITHOUT_BB: ai = negamax_iterative; break;
-      case AI_MTDF_WITHOUT_BB:              ai = mtdf; break;
-      case AI_NEGAMAX_WITH_BB:              ai = negamax_bb; break;
-      case AI_NEGAMAX_ITERATIVE_WITH_BB:    ai = negamax_iterative_bb; break;
-      case AI_MTDF_WITH_BB:                 ai = mtdf_bb; break;
+      case AI_NEGAMAX:                      ai = negamax_bb; break;
+      case AI_NEGAMAX_ITERATIVE:            ai = negamax_iterative_bb; break;
+      case AI_MTDF:                         ai = mtdf_bb; break;
       default:                              assert(false);
     }
     steady_clock::time_point t1 = steady_clock::now();
-    int score = ai(board, square_order, move, nodes_searched);
+    int score = ai(board, square_order, jump_order, move, nodes_searched);
     steady_clock::time_point t2 = steady_clock::now();
     duration<double> secs = duration_cast<duration<double>>(t2 - t1);
     cout << "Searched " << nodes_searched << " nodes in " << secs.count() << " seconds";
