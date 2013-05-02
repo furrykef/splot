@@ -10,19 +10,19 @@
 namespace
 {
 
-int negamax_bb_root(const Board& board, int depth, int alpha, int beta, const std::vector<int>& square_order, const std::vector<int>& jump_order, bool& horizon_found, Move& move_out, int& nodes_searched);
+int negamax_bb_root(const Board& board, int depth, int alpha, int beta, const std::vector<int>& square_order, const std::vector<int>& jump_order, Move& move_out, int& nodes_searched);
 int negamax_bb_impl(Bitboard bb_player1, Bitboard bb_player2, int depth,
     int alpha, int beta, int player_sign, bool is_root, bool in_null_branch,
     const std::vector<int>& square_order, const std::vector<int>& jump_order,
-    bool& horizon_found, BitboardMove& move_out, int& nodes_searched);
+    BitboardMove& move_out, int& nodes_searched);
 bool searchMove(BitboardMove bbmove, int& score, ZobristValue& zv,
     Bitboard bb_player1, Bitboard bb_player2, Bitboard bb_me,
     Bitboard bb_him, int depth, int& best_score, int& alpha, int beta,
     int player_sign, bool in_null_branch, const std::vector<int>& square_order,
-    const std::vector<int>& jump_order, bool& horizon_found,
-    BitboardMove& move_out, int& nodes_searched);
+    const std::vector<int>& jump_order, BitboardMove& move_out,
+    int& nodes_searched);
 void makeMoveBB(BitboardMove bbmove, Bitboard& me, Bitboard& him);
-int evalPositionBB(Bitboard player1, Bitboard player2, bool& horizon_found);
+int evalPositionBB(Bitboard player1, Bitboard player2);
 void convBoardToBitboards(const Board& board, Bitboard& player1, Bitboard& player2);
 void convBitboardMoveToMove(const Board& board, Player player, BitboardMove bb_move, Move& move);
 void convSquareNumToCoord(int square_num, Coord& coord);
@@ -38,20 +38,14 @@ inline void handleCaptures(Bitboard capture_radius, Bitboard& me, Bitboard& him)
 
 int negamax_bb(const Board& board, const std::vector<int>& square_order, const std::vector<int>& jump_order, Move& move_out, int& nodes_searched)
 {
-    bool horizon_found;     // not used
-    return negamax_bb_root(board, MAX_PLY, -INFINITY, INFINITY, square_order, jump_order, horizon_found, move_out, nodes_searched);
+    return negamax_bb_root(board, MAX_PLY, -INFINITY, INFINITY, square_order, jump_order, move_out, nodes_searched);
 }
 
 int negamax_iterative_bb(const Board& board, const std::vector<int>& square_order, const std::vector<int>& jump_order, Move& move_out, int& nodes_searched)
 {
     int score;
-    bool horizon_found;
     for(int depth = 1; depth <= MAX_PLY; ++depth) {
-        score = negamax_bb_root(board, depth, -INFINITY, INFINITY, square_order, jump_order, horizon_found, move_out, nodes_searched);
-        if(!horizon_found) {
-            // No need to deepen further
-            break;
-        }
+        score = negamax_bb_root(board, depth, -INFINITY, INFINITY, square_order, jump_order, move_out, nodes_searched);
     }
     return score;
 }
@@ -59,13 +53,8 @@ int negamax_iterative_bb(const Board& board, const std::vector<int>& square_orde
 int mtdf_bb(const Board& board, const std::vector<int>& square_order, const std::vector<int>& jump_order, Move& move_out, int& nodes_searched)
 {
     int f = 0;
-    bool horizon_found;
     for(int depth = 1; depth <= MAX_PLY; ++depth) {
-        f = mtdf_impl(board, depth, f, square_order, jump_order, horizon_found, move_out, nodes_searched, negamax_bb_root);
-        if(!horizon_found) {
-            // No need to deepen further
-            break;
-        }
+        f = mtdf_impl(board, depth, f, square_order, jump_order, move_out, nodes_searched, negamax_bb_root);
     }
     return f;
 }
@@ -74,17 +63,12 @@ int mtdf_bb(const Board& board, const std::vector<int>& square_order, const std:
 namespace
 {
 
-int negamax_bb_root(const Board& board, int depth, int alpha, int beta, const std::vector<int>& square_order, const std::vector<int>& jump_order, bool& horizon_found, Move& move_out, int& nodes_searched)
+int negamax_bb_root(const Board& board, int depth, int alpha, int beta, const std::vector<int>& square_order, const std::vector<int>& jump_order, Move& move_out, int& nodes_searched)
 {
-    // Assume false for now until proven otherwise.
-    // This is set to true when we find a leaf node that does not end the game.
-    // This is to tell iterative deepening that we do not need to analyze any further ply.
-    horizon_found = false;
-
     Bitboard bb_player1, bb_player2;
     convBoardToBitboards(board, bb_player1, bb_player2);
     BitboardMove bb_move_out;
-    int score = negamax_bb_impl(bb_player1, bb_player2, depth, alpha, beta, 1, true, false, square_order, jump_order, horizon_found, bb_move_out, nodes_searched);
+    int score = negamax_bb_impl(bb_player1, bb_player2, depth, alpha, beta, 1, true, false, square_order, jump_order, bb_move_out, nodes_searched);
     // @TODO@ -- assumes AI is player 2
     convBitboardMoveToMove(board, PLAYER2, bb_move_out, move_out);
     return score;
@@ -93,12 +77,12 @@ int negamax_bb_root(const Board& board, int depth, int alpha, int beta, const st
 // player_sign is 1 for Max (i.e. this AI player), -1 for Min
 // Throughout, "me" refers to the player whose move we're considering; "him" refers to his opponent
 // So "me" alternates between player 1 and player 2 throughout the tree
-int negamax_bb_impl(Bitboard bb_player1, Bitboard bb_player2, int depth, int alpha, int beta, int player_sign, bool is_root, bool in_null_branch, const std::vector<int>& square_order, const std::vector<int>& jump_order, bool& horizon_found, BitboardMove& move_out, int& nodes_searched)
+int negamax_bb_impl(Bitboard bb_player1, Bitboard bb_player2, int depth, int alpha, int beta, int player_sign, bool is_root, bool in_null_branch, const std::vector<int>& square_order, const std::vector<int>& jump_order, BitboardMove& move_out, int& nodes_searched)
 {
     ++nodes_searched;
 
     if(depth == 0) {
-        return player_sign * evalPositionBB(bb_player1, bb_player2, horizon_found);
+        return player_sign * evalPositionBB(bb_player1, bb_player2);
     }
 
     if(!ENABLE_ALPHA_BETA) {
@@ -150,7 +134,7 @@ int negamax_bb_impl(Bitboard bb_player1, Bitboard bb_player2, int depth, int alp
         if(searchMove(null_move, score, zv, bb_player1, bb_player2,
                       bb_me, bb_him, depth - (NULL_MOVE_REDUCTION - 1),
                       best_score, beta_minus_one, beta, player_sign, true,
-                      square_order, jump_order, horizon_found, move_out,
+                      square_order, jump_order, move_out,
                       nodes_searched))
         {
             // Beta cutoff
@@ -164,7 +148,7 @@ int negamax_bb_impl(Bitboard bb_player1, Bitboard bb_player2, int depth, int alp
         if(searchMove(move_out, score, zv, bb_player1,
                       bb_player2, bb_me, bb_him, depth, best_score,
                       alpha, beta, player_sign, in_null_branch,
-                      square_order, jump_order, horizon_found, move_out,
+                      square_order, jump_order, move_out,
                       nodes_searched))
         {
             // Beta cutoff
@@ -189,7 +173,7 @@ int negamax_bb_impl(Bitboard bb_player1, Bitboard bb_player2, int depth, int alp
                 if(searchMove(bbmove, score, zv, bb_player1,
                               bb_player2, bb_me, bb_him, depth, best_score,
                               alpha, beta, player_sign, in_null_branch,
-                              square_order, jump_order, horizon_found, move_out,
+                              square_order, jump_order, move_out,
                               nodes_searched))
                 {
                     // Beta cutoff
@@ -216,7 +200,7 @@ int negamax_bb_impl(Bitboard bb_player1, Bitboard bb_player2, int depth, int alp
                     if(searchMove(bbmove, score, zv, bb_player1,
                                   bb_player2, bb_me, bb_him, depth, best_score,
                                   alpha, beta, player_sign, in_null_branch,
-                                  square_order, jump_order, horizon_found, move_out,
+                                  square_order, jump_order, move_out,
                                   nodes_searched))
                     {
                         // Beta cutoff
@@ -246,7 +230,7 @@ int negamax_bb_impl(Bitboard bb_player1, Bitboard bb_player2, int depth, int alp
                     if(searchMove(bbmove, score, zv, bb_player1,
                                   bb_player2, bb_me, bb_him, depth, best_score,
                                   alpha, beta, player_sign, in_null_branch,
-                                  square_order, jump_order, horizon_found, move_out,
+                                  square_order, jump_order, move_out,
                                   nodes_searched))
                     {
                         // Beta cutoff
@@ -263,7 +247,7 @@ int negamax_bb_impl(Bitboard bb_player1, Bitboard bb_player2, int depth, int alp
         // Should check if game over and if so return position evaluation.
         // Otherwise, should take another turn. Sometimes a player gets to fill
         // the board here; that should be detected too.
-        int score = player_sign * evalPositionBB(bb_player1, bb_player2, horizon_found);
+        int score = player_sign * evalPositionBB(bb_player1, bb_player2);
         zv.lower_bound = score;
         zv.upper_bound = score;
         return score;
@@ -279,8 +263,8 @@ bool searchMove(BitboardMove bbmove, int& score, ZobristValue& zv,
     Bitboard bb_player1, Bitboard bb_player2, Bitboard bb_me,
     Bitboard bb_him, int depth, int& best_score, int& alpha, int beta,
     int player_sign, bool in_null_branch, const std::vector<int>& square_order,
-    const std::vector<int>& jump_order, bool& horizon_found,
-    BitboardMove& move_out, int& nodes_searched)
+    const std::vector<int>& jump_order, BitboardMove& move_out,
+    int& nodes_searched)
 {
     Bitboard bb_me_after = bb_me;
     Bitboard bb_him_after = bb_him;
@@ -293,7 +277,7 @@ bool searchMove(BitboardMove bbmove, int& score, ZobristValue& zv,
         std::swap(bb_p1_after, bb_p2_after);
     }
     BitboardMove dummy;     // @TODO@ -- make unnecessary
-    score = -negamax_bb_impl(bb_p1_after, bb_p2_after, depth - 1, -beta, -alpha, -player_sign, false, in_null_branch, square_order, jump_order, horizon_found, dummy, nodes_searched);
+    score = -negamax_bb_impl(bb_p1_after, bb_p2_after, depth - 1, -beta, -alpha, -player_sign, false, in_null_branch, square_order, jump_order, dummy, nodes_searched);
     if(score > best_score) {
         best_score = score;
         move_out = bbmove;
@@ -344,7 +328,7 @@ void makeMoveBB(BitboardMove bbmove, Bitboard& me, Bitboard& him)
 
 // @TODO@ -- Assumes AI is PLAYER2
 // @TODO@ -- Does not account for draws (default 2-player rules don't allow them anyway)
-int evalPositionBB(Bitboard player1, Bitboard player2, bool& horizon_found)
+int evalPositionBB(Bitboard player1, Bitboard player2)
 {
     int num_pieces_p1 = countSetBits(player1);
     int num_pieces_p2 = countSetBits(player2);
@@ -357,7 +341,6 @@ int evalPositionBB(Bitboard player1, Bitboard player2, bool& horizon_found)
             return LOSS;
         }
     }
-    horizon_found = true;
     return num_pieces_p2 - num_pieces_p1;
 }
 

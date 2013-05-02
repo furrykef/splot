@@ -20,19 +20,16 @@ int random_move(const Board& board, const std::vector<int>& square_order, const 
     return 0;
 }
 
-int mtdf_impl(const Board& board, int depth, int f, const std::vector<int>& square_order, const std::vector<int>& jump_order, bool& horizon_found, Move& move_out, int& nodes_searched, NegamaxRootFuncPtr fp_negamax_root)
+int mtdf_impl(const Board& board, int depth, int f, const std::vector<int>& square_order, const std::vector<int>& jump_order, Move& move_out, int& nodes_searched, NegamaxRootFuncPtr fp_negamax_root)
 {
-    horizon_found = false;
     int score = f;
     int lower_bound = -INFINITY;
     int upper_bound = INFINITY;
     int beta;
     do {
         Move move;
-        bool horizon_found_this_iteration;
-        beta = (score == lower_bound) ? score + 1 : score;
-        score = fp_negamax_root(board, depth, beta - 1, beta, square_order, jump_order, horizon_found_this_iteration, move, nodes_searched);
-        horizon_found = horizon_found || horizon_found_this_iteration;
+        beta = (score == lower_bound) ? (score + 1) : score;
+        score = fp_negamax_root(board, depth, beta - 1, beta, square_order, jump_order, move, nodes_searched);
         if(score < beta) {
             // Failed low
             upper_bound = score;

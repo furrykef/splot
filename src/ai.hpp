@@ -19,19 +19,20 @@ const bool CLEAR_ZOBRIST_EVERY_TIME = false;
 // That means this value is 1 greater than the R conventionally used.
 const int NULL_MOVE_REDUCTION = 2;
 
-// Arbitrary value. Should fit into a short (for zobrist hashing).
-// It's tempting to use SHRT_MIN and SHRT_MAX for -inf and +inf, but this is
-// wrong, because -SHRT_MIN is still SHRT_MIN! (Thanks, two's complement.)
-const int INFINITY = 10000;
+// Arbitrary value. Should fit into a short (for transposition table). It's
+// tempting to use SHRT_MIN for -inf, but this is wrong, because -SHRT_MIN is
+// still SHRT_MIN! (Thanks, two's complement.)
+const int INFINITY = 0x7fff;
 
-const int WIN = INFINITY - 1;   // Less than infinity so we won't fail low when MTD(f) finds score is LOSS
+// Must be within the bounds of INFINITY and -INFINITY.
+const int WIN = 10000;
 const int LOSS = -WIN;
 
 typedef int (*AiFuncPtr)(const Board& board, const std::vector<int>& square_order, const std::vector<int>& jump_order, Move& move_out, int& nodes_searched);
-typedef int (*NegamaxRootFuncPtr)(const Board& board, int depth, int alpha, int beta, const std::vector<int>& square_order, const std::vector<int>& jump_order, bool& horizon_found, Move& move_out, int& nodes_searched);
+typedef int (*NegamaxRootFuncPtr)(const Board& board, int depth, int alpha, int beta, const std::vector<int>& square_order, const std::vector<int>& jump_order, Move& move_out, int& nodes_searched);
 
 int random_move(const Board& board, const std::vector<int>& square_order, const std::vector<int>& jump_order, Move& move, int& nodes_searched);
-int mtdf_impl(const Board &board, int depth, int f, const std::vector<int>& square_order, const std::vector<int>& jump_order, bool& horizon_found, Move& move, int& nodes_searched, NegamaxRootFuncPtr fp_negamax_root);
+int mtdf_impl(const Board &board, int depth, int f, const std::vector<int>& square_order, const std::vector<int>& jump_order, Move& move, int& nodes_searched, NegamaxRootFuncPtr fp_negamax_root);
 int negamax_bb(const Board& board, const std::vector<int>& square_order, const std::vector<int>& jump_order, Move& move, int& nodes_searched);
 int negamax_iterative_bb(const Board& board, const std::vector<int>& square_order, const std::vector<int>& jump_order, Move& move, int& nodes_searched);
 int mtdf_bb(const Board& board, const std::vector<int>& square_order, const std::vector<int>& jump_order, Move& move, int& nodes_searched);

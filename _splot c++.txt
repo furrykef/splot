@@ -3,9 +3,13 @@ DEEP SPOT
 
 Immediate todos
 ---------------
+* AI's play is still erratic, making clear mistakes...
+
+* Try futility pruning: on frontier, if score + 8 <= alpha, return alpha. This is because 8 is the most we can hope for the score to increase every move.
+
 * Improving move order by searching non-capturing jumps last has slowed down the AI's nodes/sec considerably. Need to check whether the number of branches pruned outweigh this.
 
-* BB and vanilla move order no longer match again, since BB now searches non-capturing jumps last.
+* Randomizing jump order seems to have slowed things down a lot! Can we randomize only the root node without creating a maintenance nightmare?
 
 * CPU MADE ILLEGAL MOVE. Had only one move available at end of game and passed. "Searched 77 nodes in 0 seconds"
 ** Must not have found a better move than alpha, which was -INFINITY, and so returned no move. (Now LOSS is not the same as -INFINITY, so hopefully this is fixed.)
@@ -36,6 +40,18 @@ Immediate todos
 Terminology
 -----------
 Capture square: A square the opponent can land on to capture a piece.
+
+
+Horizon and end of game
+-----------------------
+We'd like to cut off iterative deepening when no horizon has been found (e.g. it's useless to search beyond 3 ply because the game will end in at most 3 moves). I tried this with an ill-considered variable called horizon_found, which is set to false at the start of search and true when evalPositionBB evaluates a leaf node that is not end of game. Two problems here: one, transposition table hits. The transposition table doesn't record whether a horizon was found. Even if it did, the lack of recorded horizon doesn't mean there isn't one (e.g. if we try futility pruning). Two, we may eventually want to call evalPositionBB in positions other than leaf nodes (though this can be worked around by passing a dummy horizon_found to it, but this is unintuitive and you have to remember to do it).
+
+
+Transposition table and cutting off search
+------------------------------------------
+Since we write to the transposition table by reference, we'll have incomplete edits to the transposition table if we stop searching prematurely. This can have consequences if this transposition table is reused on the next turn, especially considering some of the wrong entries will include nodes high up in the tree (thus likely including the move that got played).
+
+The simple solution would be to store by value instead of by reference, like we did before, though it might slow things down. We definitely don't want to hash the position a second time when we store the entry, so maybe we can get the reference to the entry in the table, but operate on a copy, then do "zv = zv_copy;" to store it.
 
 
 AI
