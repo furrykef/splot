@@ -11,7 +11,14 @@ const bool ENABLE_ZOBRIST = true;
 const int MAX_PLY = 9;                  // must be > 0
 const bool ENABLE_BEST_FIRST = true;
 const bool ENABLE_NULL_MOVE = false;
+const bool ENABLE_FUTILITY = true;
+const int FUTILITY_THRESHOLD = 16;      // player's score can increase at most by 16 on a turn w/ current scoring method (player gains 8 pieces, opponent loses 8 pieces)
 const bool CLEAR_ZOBRIST_EVERY_TIME = false;
+
+// Largest value that fits in transposition table's "depth" field.
+// Used when the exact score of a position is known (i.e. the game is over).
+// That way the position need not be re-searched.
+const int INFINITE_PLY = 0x7f;
 
 // Should be > 0. This number includes the ply of the null move itself,
 // so if we used 0, the search depth would not be reduced at all (i.e.,

@@ -81,13 +81,27 @@ int negamax_bb_impl(Bitboard bb_player1, Bitboard bb_player2, int depth, int alp
 {
     ++nodes_searched;
 
-    if(depth == 0) {
-        return player_sign * evalPositionBB(bb_player1, bb_player2);
-    }
-
     if(!ENABLE_ALPHA_BETA) {
         alpha = -INFINITY;
         beta = INFINITY;
+    }
+
+    if(ENABLE_FUTILITY) {
+        if(depth <= 1) {
+            int score = player_sign * evalPositionBB(bb_player1, bb_player2);
+            if(depth == 0) {
+                return score;
+            }
+            // We're at the frontier
+            if(score + FUTILITY_THRESHOLD <= alpha) {
+                // We can't get a score higher than alpha; useless to examine this position further
+                return alpha;
+            }
+        }
+    } else {
+        if(depth == 0) {
+            return player_sign * evalPositionBB(bb_player1, bb_player2);
+        }
     }
 
     ZobristValue& zv = getZobristValueBB(bb_player1, bb_player2, player_sign);
@@ -243,11 +257,19 @@ int negamax_bb_impl(Bitboard bb_player1, Bitboard bb_player2, int depth, int alp
 
     if(!found_any_moves) {
         // No moves were found
-        // @TODO@ -- This is not correct behavior!
-        // Should check if game over and if so return position evaluation.
-        // Otherwise, should take another turn. Sometimes a player gets to fill
-        // the board here; that should be detected too.
+        // We assume the other player can fill the board (should be true in a 2-player game)
+        // @TODO@ -- I believe this assumption does NOT hold if we allow impassable squares
+        // @TODO@ -- assumes player_sign == 1 means player 2's turn. Will this hold if we
+        // allow AI to be player 1?
+        if(player_sign == 1) {
+            // Player 2's turn; player 1 fills board
+            bb_player1 |= bb_empty;
+        } else {
+            // Vice versa
+            bb_player2 |= bb_empty;
+        }
         int score = player_sign * evalPositionBB(bb_player1, bb_player2);
+        zv.depth = INFINITE_PLY;    // The game should be over
         zv.lower_bound = score;
         zv.upper_bound = score;
         return score;
@@ -383,6 +405,14 @@ void convBitboardMoveToMove(const Board& board, Player player, BitboardMove bb_m
         convSquareNumToCoord(bb_move.square, move.src);
         move.dst.x = move.src.x + JUMP_COORDS[bb_move.jump_type].x;
         move.dst.y = move.src.y + JUMP_COORDS[bb_move.jump_type].y;
+        break;
+
+      case BBMOVE_NONE:
+        // MTD(f) will generate this when negamax fails low.
+        // So we can't assert(false) here.
+        // What we can do, though, is mark this move and check for it
+        // when it isn't expected.
+        move.src.x = move.src.y = move.dst.x = move.dst.y = -1;
         break;
 
       default:

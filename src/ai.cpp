@@ -36,6 +36,7 @@ int mtdf_impl(const Board& board, int depth, int f, const std::vector<int>& squa
         } else {
             // Failed high
             lower_bound = score;
+            assert(checkLegalMove(board, PLAYER2, move));   // @TODO@ -- assumes AI is player 2
             move_out = move;
         }
     } while(lower_bound < upper_bound);

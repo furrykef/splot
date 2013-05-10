@@ -31,19 +31,6 @@ void initZobristTable()
 
 // player_sign is 1 for AI, -1 for human
 // Remember, depth of -1 signifies the whole ZobristValue is invalid
-ZobristValue& getZobristValue(const Board& board, int player_sign)
-{
-    ZobristHash hash = calcHash(board, player_sign);
-    return getZobristValueImpl(hash);
-}
-
-void setZobristValue(const Board& board, int player_sign, ZobristValue& value)
-{
-    ZobristHash hash = calcHash(board, player_sign);
-    setZobristValueImpl(hash, value);
-}
-
-
 ZobristValue& getZobristValueBB(Bitboard player1, Bitboard player2, int player_sign)
 {
     ZobristHash hash = calcHashBB(player1, player2, player_sign);
@@ -77,26 +64,6 @@ void setZobristValueImpl(ZobristHash hash, ZobristValue& value)
 {
     value.full_hash = hash;
     zobrist_table[hash % ZOBRIST_TABLE_SIZE] = value;
-}
-
-ZobristHash calcHash(const Board& board, int player_sign)
-{
-    ZobristHash hash = 0;
-    size_t count = 0;
-    for(int y = 0; y < BOARD_SIZE; ++y) {
-        for(int x = 0; x < BOARD_SIZE; ++x) {
-            Player board_cell = board(x, y);
-            assert(board_cell <= PLAYER2);
-            if(board_cell != EMPTY_SQUARE) {
-                hash ^= ZOBRIST_CODES[board_cell - 1][count];
-            }
-            ++count;
-        }
-    }
-    if(player_sign == 1) {
-        hash ^= PLAYER2_TURN_CODE;
-    }
-    return hash;
 }
 
 ZobristHash calcHashBB(Bitboard player1, Bitboard player2, int player_sign)
