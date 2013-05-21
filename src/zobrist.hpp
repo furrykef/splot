@@ -38,7 +38,9 @@ struct ZobristValue
 #pragma pack()
 
 void initZobristTable();
-ZobristValue& getZobristValueBB(Bitboard player1, Bitboard player2, int player_sign);
+ZobristValue getZobristValueBB(ZobristHash hash);
+void setZobristValueBB(ZobristHash hash, const ZobristValue& value);
+ZobristHash calcHashBB(Bitboard player1, Bitboard player2, int player_sign);
 
 extern const ZobristHash ZOBRIST_CODES[2][NUM_SQUARES];
 extern const ZobristHash ZOBRIST_CODES_BB[2][4][0x10000];

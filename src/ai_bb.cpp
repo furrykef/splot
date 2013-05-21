@@ -22,6 +22,7 @@ bool searchMove(BitboardMove bbmove, int& score, ZobristValue& zv,
     const std::vector<int>& jump_order, BitboardMove& move_out,
     int& nodes_searched);
 void makeMoveBB(BitboardMove bbmove, Bitboard& me, Bitboard& him);
+bool checkLegalMoveBB(BitboardMove bbmove, Bitboard bb_me, Bitboard bb_empty);
 int evalPositionBB(Bitboard player1, Bitboard player2);
 void convBoardToBitboards(const Board& board, Bitboard& player1, Bitboard& player2);
 void convBitboardMoveToMove(const Board& board, Player player, BitboardMove bb_move, Move& move);
@@ -104,30 +105,6 @@ int negamax_bb_impl(Bitboard bb_player1, Bitboard bb_player2, int depth, int alp
         }
     }
 
-    ZobristValue& zv = getZobristValueBB(bb_player1, bb_player2, player_sign);
-    if(ENABLE_ZOBRIST) {
-        if(zv.depth >= depth) {
-            // @TODO@ -- should check if zobrist_value.best_move is a legal move.
-            // If it is not, there was a hash collision (or a bug, but hopefully not).
-            // In that case, not only can we invalidate the score, but we know not to
-            // try playing it as the best move. (In extremely rare cases, unlikely to
-            // ever occur in a real game, this could result in the root node of the
-            // tree returning an illegal move as the move to play!)
-            if(zv.lower_bound >= beta) {
-                return zv.lower_bound;
-            } else if(zv.upper_bound <= alpha) {
-                return zv.upper_bound;
-            }
-            alpha = std::max(alpha, int(zv.lower_bound));
-            beta = std::min(beta, int(zv.upper_bound));
-        }
-        zv.depth = depth;
-        // @TODO@ -- move this into its own variable?
-        move_out = zv.best_move;
-    } else {
-        move_out.move_type = BBMOVE_NONE;
-    }
-
     // @TODO@ -- all this assumes AI is player 2
     Bitboard bb_pieces = bb_player1 | bb_player2;
     Bitboard bb_empty = invertBitboard(bb_pieces);
@@ -135,6 +112,32 @@ int negamax_bb_impl(Bitboard bb_player1, Bitboard bb_player2, int depth, int alp
     Bitboard bb_him = bb_player2;
     if(player_sign == 1) {
         std::swap(bb_me, bb_him);
+    }
+
+    ZobristHash hash = calcHashBB(bb_player1, bb_player2, player_sign);
+    ZobristValue zv = getZobristValueBB(hash);
+    if(ENABLE_ZOBRIST) {
+        // Set this in advance in case zobrist makes us fail high!
+        move_out = zv.best_move;
+        if(move_out.move_type != BBMOVE_NONE && !checkLegalMoveBB(move_out, bb_me, bb_empty)) {
+            // Transposition table has illegal move;
+            zv = ZobristValue();
+            move_out = zv.best_move;    // clear move_out
+        }
+        else if(zv.depth >= depth) {
+            if(!is_root || zv.best_move.move_type != BBMOVE_NONE) {
+                if(zv.lower_bound >= beta) {
+                    return zv.lower_bound;
+                } else if(zv.upper_bound <= alpha && !is_root) {
+                    return zv.upper_bound;
+                }
+            }
+            alpha = std::max(alpha, int(zv.lower_bound));
+            beta = std::min(beta, int(zv.upper_bound));
+        }
+        zv.depth = depth;
+    } else {
+        move_out.move_type = BBMOVE_NONE;
     }
 
     int best_score = -INFINITY;
@@ -152,6 +155,7 @@ int negamax_bb_impl(Bitboard bb_player1, Bitboard bb_player2, int depth, int alp
                       nodes_searched))
         {
             // Beta cutoff
+            setZobristValueBB(hash, zv);
             return score;
         }
     }
@@ -166,6 +170,7 @@ int negamax_bb_impl(Bitboard bb_player1, Bitboard bb_player2, int depth, int alp
                       nodes_searched))
         {
             // Beta cutoff
+            setZobristValueBB(hash, zv);
             return score;
         }
     }
@@ -191,6 +196,7 @@ int negamax_bb_impl(Bitboard bb_player1, Bitboard bb_player2, int depth, int alp
                               nodes_searched))
                 {
                     // Beta cutoff
+                    setZobristValueBB(hash, zv);
                     return score;
                 }
             }
@@ -218,6 +224,7 @@ int negamax_bb_impl(Bitboard bb_player1, Bitboard bb_player2, int depth, int alp
                                   nodes_searched))
                     {
                         // Beta cutoff
+                        setZobristValueBB(hash, zv);
                         return score;
                     }
                 }
@@ -228,27 +235,31 @@ int negamax_bb_impl(Bitboard bb_player1, Bitboard bb_player2, int depth, int alp
     // Now look for the least promising moves: jumps that don't capture.
     // @TODO@ -- code duplication! This is exactly the same loop as above,
     // except one of the conditions is negated.
-    for(int square_num : square_order) {
-        BitboardMove bbmove(BBMOVE_NONE, 0, 0);
-        Bitboard bit = 1LL << square_num;
-        if(bit & bb_me) {
-            // This is one of my squares; try to generate jumps
-            const BitboardJump* jumps = BITBOARD_JUMPS[square_num];
-            for(int jump_num : jump_order) {
-                if(jumps[jump_num].dest_square & bb_empty && !(jumps[jump_num].capture_radius & bb_him)) {
-                    found_any_moves = true;
-                    bbmove.move_type = BBMOVE_JUMP;
-                    bbmove.square = square_num;
-                    bbmove.jump_type = jump_num;
-                    int score;
-                    if(searchMove(bbmove, score, zv, bb_player1,
-                                  bb_player2, bb_me, bb_him, depth, best_score,
-                                  alpha, beta, player_sign, in_null_branch,
-                                  square_order, jump_order, move_out,
-                                  nodes_searched))
-                    {
-                        // Beta cutoff
-                        return score;
+    // @TODO@ -- is it really a good idea to only do this if no moves are found?
+    if(1 /* !found_any_moves */) {
+        for(int square_num : square_order) {
+            BitboardMove bbmove(BBMOVE_NONE, 0, 0);
+            Bitboard bit = 1LL << square_num;
+            if(bit & bb_me) {
+                // This is one of my squares; try to generate jumps
+                const BitboardJump* jumps = BITBOARD_JUMPS[square_num];
+                for(int jump_num : jump_order) {
+                    if(jumps[jump_num].dest_square & bb_empty && !(jumps[jump_num].capture_radius & bb_him)) {
+                        found_any_moves = true;
+                        bbmove.move_type = BBMOVE_JUMP;
+                        bbmove.square = square_num;
+                        bbmove.jump_type = jump_num;
+                        int score;
+                        if(searchMove(bbmove, score, zv, bb_player1,
+                                      bb_player2, bb_me, bb_him, depth, best_score,
+                                      alpha, beta, player_sign, in_null_branch,
+                                      square_order, jump_order, move_out,
+                                      nodes_searched))
+                        {
+                            // Beta cutoff
+                            setZobristValueBB(hash, zv);
+                            return score;
+                        }
                     }
                 }
             }
@@ -272,11 +283,13 @@ int negamax_bb_impl(Bitboard bb_player1, Bitboard bb_player2, int depth, int alp
         zv.depth = INFINITE_PLY;    // The game should be over
         zv.lower_bound = score;
         zv.upper_bound = score;
+        setZobristValueBB(hash, zv);
         return score;
     }
 
     zv.upper_bound = alpha;
     zv.best_move = BitboardMove(BBMOVE_NONE, 0, 0);
+    setZobristValueBB(hash, zv);
     return alpha;
 }
 
@@ -348,10 +361,28 @@ void makeMoveBB(BitboardMove bbmove, Bitboard& me, Bitboard& him)
     }
 }
 
+bool checkLegalMoveBB(BitboardMove bbmove, Bitboard bb_me, Bitboard bb_empty)
+{
+    Bitboard square_bit = 1LL << bbmove.square;
+    if(bbmove.move_type == BBMOVE_CLONE) {
+        return (bb_empty & square_bit) && (BITBOARD_SURROUNDS[bbmove.square] & bb_me);
+    } else if(bbmove.move_type == BBMOVE_JUMP) {
+        BitboardJump jump = BITBOARD_JUMPS[bbmove.square][bbmove.jump_type];
+        return (bb_me & square_bit) && (bb_empty & jump.dest_square);
+    } else {
+        return false;
+    }
+}
+
 // @TODO@ -- Assumes AI is PLAYER2
 // @TODO@ -- Does not account for draws (default 2-player rules don't allow them anyway)
 int evalPositionBB(Bitboard player1, Bitboard player2)
 {
+    // Make sure the high bits if the bitboards are clear
+    assert((player1 & ~((1LL << NUM_SQUARES) - 1)) == 0);
+    assert((player2 & ~((1LL << NUM_SQUARES) - 1)) == 0);
+    // Make sure there is no overlap between bitboards
+    assert((player1 & player2) == 0);
     int num_pieces_p1 = countSetBits(player1);
     int num_pieces_p2 = countSetBits(player2);
     // @TODO@ -- assumes board has NUM_SQUARES empty squares

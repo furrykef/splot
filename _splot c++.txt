@@ -3,12 +3,13 @@ DEEP SPOT
 
 Immediate todos
 ---------------
+* ARGH STUPID AI BUG
+** Sometimes the root node fails high and doesn't generate a move in so doing.
+** The root can also fail high with no move if the root node is in the transposition table with no "best move" recorded. (Clearing the transposition table on every move should avoid this.)
+
 * AI's play is still erratic, making clear mistakes...
 
 * Improving move order by searching non-capturing jumps last has slowed down the AI's nodes/sec considerably. Need to check whether the number of branches pruned outweigh this.
-
-* CPU MADE ILLEGAL MOVE. Had only one move available at end of game and passed. "Searched 77 nodes in 0 seconds"
-** Must not have found a better move than alpha, which was -INFINITY, and so returned no move. (Now LOSS is not the same as -INFINITY, so hopefully this is fixed.)
 
 * Now that WIN and LOSS are no longer infinity, you won't get a beta cutoff when a win is detected and beta is INFINITY, so you may want to change the beta cutoff check to check for WIN too.
 
@@ -48,16 +49,18 @@ Terminology
 Capture square: A square the opponent can land on to capture a piece.
 
 
+AI stalls the game
+------------------
+Sometimes the player and AI's positions are sealed off from one another. If this position is lost for the AI, the AI will keep playing noncapturing jumps to delay the game indefinitely.
+* This is already partially handled by the fill check: once the winning player has filled his side of the board, the human player will no longer have any legal moves. The AI will then see all moves as losing and will default to playing clone moves.
+** But what sometimes happens in practice is the AI will keep the player from filling his part of the board by vacating one of the squares on its border with your territory. 
+
+Simple solution: never play a non-capturing jump unless it is the only legal move. However, this may prevent the AI from playing such a move when it really is the best move (especially on boards with impassable squares). One heavy-handed way around this would be to ban non-capturing jumps entirely.
+
+
 Horizon and end of game
 -----------------------
 We'd like to cut off iterative deepening when no horizon has been found (e.g. it's useless to search beyond 3 ply because the game will end in at most 3 moves). I tried this with an ill-considered variable called horizon_found, which is set to false at the start of search and true when evalPositionBB evaluates a leaf node that is not end of game. Two problems here: one, transposition table hits. The transposition table doesn't record whether a horizon was found. Even if it did, the lack of recorded horizon doesn't mean there isn't one (e.g. if we try futility pruning). Two, we may eventually want to call evalPositionBB in positions other than leaf nodes (though this can be worked around by passing a dummy horizon_found to it, but this is unintuitive and you have to remember to do it).
-
-
-Transposition table and cutting off search
-------------------------------------------
-Since we write to the transposition table by reference, we'll have incomplete edits to the transposition table if we stop searching prematurely. This can have consequences if this transposition table is reused on the next turn, especially considering some of the wrong entries will include nodes high up in the tree (thus likely including the move that got played).
-
-The simple solution would be to store by value instead of by reference, like we did before, though it might slow things down. We definitely don't want to hash the position a second time when we store the entry, so maybe we can get the reference to the entry in the table, but operate on a copy, then do "zv = zv_copy;" to store it.
 
 
 Zugzwang
@@ -79,6 +82,7 @@ AI
 Don't forget we have a hard limit on maximum ply even with iterative deepening -- namely the maximum positive integer that will fit for "depth" in the transposition table. (Or whatever, if exceeded, will blow the stack -- whichever comes first.)
 
 Internal iterative deepening could be used to sort moves, replacing the current three-tier system of guessing how good a move is.
+* This poses problems if it allows non-capturing jumps to be analyzed first. If the AI winds up in a situation where all scores add up to LOSS, it may keep playing these moves, delaying the game indefinitely.
 
 Do we ignore the transposition table at depth 0? Doing so does result in a 2x speed boost as of this writing, but then it can't benefit from any scores recorded for the same position at a higher depth -- but is that really a benefit anyway? (I know at least some chess programs do consult the transposition table before evaluating the position.)
 

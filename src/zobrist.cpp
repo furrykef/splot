@@ -10,17 +10,6 @@ ZobristValue zobrist_table[ZOBRIST_TABLE_SIZE];
 // XORed into hash when it's player 2's turn (@TODO@ -- codes for player 3, player 4)
 const ZobristHash PLAYER2_TURN_CODE = 0x431D89EC63B226D7LL;
 
-namespace
-{
-
-ZobristValue& getZobristValueImpl(ZobristHash hash);
-void setZobristValueImpl(ZobristHash hash, ZobristValue& value);
-ZobristHash calcHash(const Board& board, int player_sign);
-ZobristHash calcHashBB(Bitboard player1, Bitboard player2, int player_sign);
-ZobristHash old_calcHashBB(Bitboard player1, Bitboard player2, int player_sign);
-
-}
-
 void initZobristTable()
 {
     // Mark everything in the table as invalid
@@ -31,9 +20,8 @@ void initZobristTable()
 
 // player_sign is 1 for AI, -1 for human
 // Remember, depth of -1 signifies the whole ZobristValue is invalid
-ZobristValue& getZobristValueBB(Bitboard player1, Bitboard player2, int player_sign)
+ZobristValue getZobristValueBB(ZobristHash hash)
 {
-    ZobristHash hash = calcHashBB(player1, player2, player_sign);
     ZobristValue& value = zobrist_table[hash % ZOBRIST_TABLE_SIZE];
     if(value.full_hash != hash) {
         // The short hash (i.e. mod ZOBRIST_TABLE_SIZE) collided, but the full hash did not.
@@ -46,8 +34,10 @@ ZobristValue& getZobristValueBB(Bitboard player1, Bitboard player2, int player_s
     return value;
 }
 
-namespace
+void setZobristValueBB(ZobristHash hash, const ZobristValue& value)
 {
+    zobrist_table[hash % ZOBRIST_TABLE_SIZE] = value;
+}
 
 ZobristHash calcHashBB(Bitboard player1, Bitboard player2, int player_sign)
 {
@@ -64,6 +54,4 @@ ZobristHash calcHashBB(Bitboard player1, Bitboard player2, int player_sign)
         hash ^= PLAYER2_TURN_CODE;
     }
     return hash;
-}
-
 }

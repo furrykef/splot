@@ -5,7 +5,7 @@
 #include "Board.hpp"
 #include "moves.hpp"
 
-const bool ENABLE_RANDOMNESS = true;
+const bool ENABLE_RANDOMNESS = false;
 const bool ENABLE_ALPHA_BETA = true;
 const bool ENABLE_ZOBRIST = true;
 const int MAX_PLY = 9;                  // must be > 0
@@ -13,7 +13,7 @@ const bool ENABLE_BEST_FIRST = true;
 const bool ENABLE_NULL_MOVE = false;
 const bool ENABLE_FUTILITY = true;
 const int FUTILITY_THRESHOLD = 16;      // player's score can increase at most by 16 on a turn w/ current scoring method (player gains 8 pieces, opponent loses 8 pieces)
-const bool CLEAR_ZOBRIST_EVERY_TIME = false;
+const bool CLEAR_ZOBRIST_EVERY_TIME = true;
 
 // Largest value that fits in transposition table's "depth" field.
 // Used when the exact score of a position is known (i.e. the game is over).
