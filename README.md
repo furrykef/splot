@@ -1,0 +1,3 @@
+This is a primitive clone of the arcade game Ataxx. On the NES and several systems, it was given a 7-up theme and released as Spot. This is not intended to be a polished release and I am pretty sure it will never be one; this is just something I threw together a couple years ago.
+
+I haven't decided on a license for this code yet, but I'm leaning heavily toward GNU GPL v3. If for some reason you want to license the code under a different license, just ask.
